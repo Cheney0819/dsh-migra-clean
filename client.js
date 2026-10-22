@@ -264,9 +264,13 @@ window.__ModuleLoader__.load({
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsh-migra-clean-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:999px;
   border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
-/* 说明块：无填充底色、无装饰条，只留一圈发丝边框；就绪时边框转主色 */
+/* 说明块：无填充底色、无装饰条，只留一圈发丝边框；就绪时边框转主色。
+   min-height 固定整块高度（就绪态 = cwd 行 + 说明，最高的一态）：hover 切换
+   active 时三态（ready/current/idle）内容不同高，弹窗垂直居中，高度一变列表就
+   上下平移，指针在两行交界处会来回命中相邻行，形成 hover→位移→hover 的抖动。 */
 .dsh-migra-clean-preview{display:flex;flex-direction:column;gap:6px;
   padding:9px 10px;border-radius:9px;margin-bottom:4px;background:transparent;
+  box-sizing:border-box;min-height:102px;
   border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.22));
   transition:border-color .12s ease}
 .dsh-migra-clean-preview[data-state="ready"]{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#4c8dff) 34%,transparent)}
@@ -316,17 +320,30 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.3.6";
+    const STYLE_VERSION = "1.3.7";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
     // 样式表（带随机 uid），cleanup 只删自己那个。旧版本残留（旧 id/旧 attribute）仍然清掉。
     const STYLE_UID = `${STYLE_VERSION}-${Math.random().toString(36).slice(2, 8)}`;
 
+    // 宿主 dsh-client-modules 的样式簿记（claimStyles/removeOwnedStyles）会把所有
+    // 没有 data-plugin 属性的 <style> 认领给「下一个加载的模块」，并在那个模块热更时
+    // 把它连带删除 —— 改另一个插件会清掉我们的样式表，弹窗就裸奔了。
+    // 修复：插入时就打上 data-plugin=dsh-migra-clean 归属：别人不会认领，只有我们
+    // 自己被热更时宿主才回收，而我们自己的 apply 随即重建（下面 uid 独立样式表）。
+    const STYLE_OWNER = "dsh-migra-clean";
+
     function ensureStyles() {
       // 幂等：本 uid 已在场就直接返回，避免 OverlayHost 反复挂载时重复插入
       const existing = document.head.querySelector(`style[data-dsh-migra-clean-css="${STYLE_UID}"]`);
-      if (existing) return existing;
+      if (existing) {
+        // 兜底：归属属性万一被外部改动，补回去
+        if (existing.getAttribute("data-plugin") !== STYLE_OWNER) {
+          existing.setAttribute("data-plugin", STYLE_OWNER);
+        }
+        return existing;
+      }
       // 清掉旧版本遗留的（旧 id、旧 attribute、以及 data-dsh-migra-clean-css 但不是本 uid）
       for (const stale of Array.from(document.querySelectorAll(
         "style[data-dsh-migra-clean-css], style[data-dsh-del-css], style[data-dsh-del], style#dsh-del-styles"
@@ -335,6 +352,7 @@ window.__ModuleLoader__.load({
       }
       const style = document.createElement("style");
       style.setAttribute("data-dsh-migra-clean-css", STYLE_UID);
+      style.setAttribute("data-plugin", STYLE_OWNER);
       style.textContent = CSS;
       document.head.appendChild(style);
       return style;
@@ -832,7 +850,12 @@ window.__ModuleLoader__.load({
                         setActive(index);
                         move(w);
                       },
-                      onMouseEnter: () => setActive(index),
+                      // 悬停不切到「当前」行：那会让预览在 ready/current 两态间
+                      // 交换高度，列表上下平移，指针在两行交界处抖个不停（与
+                      // 上面键盘滚动的修复同一类问题）
+                      onMouseEnter: () => {
+                        if (!isCurrent) setActive(index);
+                      },
                     },
                     h(
                       "div",
@@ -893,10 +916,12 @@ window.__ModuleLoader__.load({
 
     function OverlayHost() {
       const snapshot = useStore();
-      // 双保险：只要浮层挂载，就确保当前版本的样式表在场
+      // 双保险：每次渲染都幂等确认样式表在场（无依赖数组）。
+      // 只在挂载时补一次不够：样式表若被宿主 HMR 簿记删掉，菜单/弹窗打开时
+      // 会走这里的状态更新重渲染，正好把样式自愈回来，不用等刷新页面。
       useEffect(() => {
         ensureStyles();
-      }, []);
+      });
       const { menu, dialog, toasts } = snapshot;
       return h(
         react.Fragment,
