@@ -1,0 +1,65 @@
+{
+  "name": "dsh-migra-clean",
+  "version": "1.3.1",
+  "description": "DeepSeek Harness 侧边栏插件：彻底删除会话、跨工作区迁移（含 cwd 与日志搬迁），支持拖拽与右键菜单。",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "session-manager",
+    "session-migration",
+    "delete-session",
+    "drag-and-drop"
+  ],
+  "scripts": {
+    "test": "node test/run.mjs",
+    "bench": "node test/bench-index.mjs",
+    "verify": "node scripts/verify-clean.mjs"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "cordis.patch.yml",
+    "scripts",
+    "test",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cheney0819/dsh-migra-clean.git"
+  },
+  "homepage": "https://github.com/Cheney0819/dsh-migra-clean#readme",
+  "bugs": {
+    "url": "https://github.com/Cheney0819/dsh-migra-clean/issues"
+  },
+  "author": {
+    "name": "Cheney0819",
+    "email": "95520185+Cheney0819@users.noreply.github.com",
+    "url": "https://github.com/Cheney0819"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

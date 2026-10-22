@@ -1,0 +1,4 @@
+# dsh-migra-clean bundle patch
+- insert:
+    - id: dsh-migra-clean
+      name: 'dsh-migra-clean'

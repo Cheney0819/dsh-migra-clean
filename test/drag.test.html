@@ -1,0 +1,138 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>dsh-migra-clean 拖拽回归测试</title>
+<style>
+  body { margin: 0; font: 13px system-ui; }
+  #wsA { position: absolute; left: 0; top: 0; width: 220px; height: 32px; background: #eee; }
+  #s1 { position: absolute; left: 0; top: 40px; width: 220px; height: 28px; background: #ddd; }
+  #s2 { position: absolute; left: 0; top: 76px; width: 220px; height: 28px; background: #ddd; }
+  #wsB { position: absolute; left: 0; top: 140px; width: 220px; height: 32px; background: #eee; }
+  #groupB { position: absolute; left: 0; top: 180px; width: 220px; height: 60px; background: #f7f7f7; }
+</style>
+<!--
+  宿主侧边栏的 DOM 契约（与 dsh-client-ui-workspace 真实输出一致）：
+    工作区行  div[data-row-key="workspace:<id>"][role="treeitem"]
+    会话行    div[data-row-key="session:<id>"][role="treeitem"][draggable]
+    分组容器  div[role="group"]
+  本页面把真实 client.js 装进假宿主里跑两套拖拽通道，用于回归。
+-->
+<div role="tree">
+  <div data-row-key="workspace:wsA" role="treeitem" id="wsA"><span>dsh-migra-clean</span></div>
+  <div role="group" id="groupA">
+    <div data-row-key="session:s1" role="treeitem" id="s1" draggable="true"><span class="title">可拖会话</span></div>
+    <div data-row-key="session:s2" role="treeitem" id="s2"><span class="title">空白会话</span></div>
+  </div>
+  <div data-row-key="workspace:wsB" role="treeitem" id="wsB"><span>Acme Design</span></div>
+  <div role="group" id="groupB"></div>
+</div>
+<pre id="out" style="position:absolute;top:260px">running…</pre>
+
+<script>
+  window.__ModuleLoader__ = {
+    load(spec) {
+      window.__spec = spec;
+    },
+  };
+  const stubReact = {
+    createElement: () => null,
+    useState: (v) => [v, () => {}],
+    useEffect() {},
+    useMemo: (f) => f(),
+    useRef: (v) => ({ current: v }),
+    Fragment: "f",
+  };
+  window.require = (name) => {
+    if (name === "react") return stubReact;
+    throw new Error("unexpected require " + name);
+  };
+</script>
+<script src="../client.js"></script>
+<script>
+(async () => {
+  const out = [];
+  window.addEventListener("error", (e) => { out.push("ERROR " + (e.message || e.error)); paint(); });
+  window.addEventListener("unhandledrejection", (e) => { out.push("REJECT " + (e.reason && (e.reason.stack || e.reason.message || e.reason))); paint(); });
+  const watchdog = setTimeout(() => { out.push("TIMEOUT (脚本未跑完)"); paint(); }, 8000);
+  const paint = () => { document.getElementById("out").textContent = out.join("\n"); };
+  const log = (ok, msg) => { out.push((ok ? "PASS " : "FAIL ") + msg); paint(); };
+  const calls = [];
+  window.fetch = async (url, init) => {
+    const body = init && init.body ? JSON.parse(init.body) : null;
+    calls.push({ url: String(url), body });
+    let payload;
+    if (String(url).includes("/workspaces")) payload = { ok: true, currentWorkspaceId: "wsA", workspaces: [{ id: "wsA" }, { id: "wsB" }] };
+    else if (String(url).includes("/move")) payload = { ok: true, sessionId: body.sessionId, targetWorkspaceId: "wsB", targetWorkspaceTitle: "Acme Design", movedChildren: 0, wasLive: false };
+    else payload = { ok: true };
+    return { ok: true, status: 200, json: async () => payload };
+  };
+  const ctx = { effect(fn) { fn(); }, get() { return false; }, on() {}, off() {}, emit() {}, slots: { inject() {}, register() { return () => {}; } } };
+  const face = window.__spec.factory(window.require);
+  face.apply(ctx);
+  const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+  // 无头环境可能不产生合成帧，rAF 不一定触发；给一个定时器兜底
+  const frame = () => new Promise((r) => {
+    let done = false;
+    const go = () => { if (!done) { done = true; r(); } };
+    requestAnimationFrame(go);
+    setTimeout(go, 50);
+  });
+
+  // ---- 通道 1：原生 draggable 行 ----
+  const dt = new DataTransfer();
+  document.getElementById("s1").dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
+  await tick(50);
+  const over = new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt });
+  document.getElementById("wsB").dispatchEvent(over);
+  log(over.defaultPrevented, "通道1 dragover 接管并允许落点");
+  document.getElementById("wsB").dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+  await tick(60);
+  const mv1 = calls.find((c) => c.body && c.body.sessionId === "s1");
+  log(Boolean(mv1) && mv1.body.targetWorkspaceId === "wsB", "通道1 drop 触发迁移 s1 -> wsB");
+  log(document.getElementById("wsB").getAttribute("data-dsh-migra-clean-drop") === null, "通道1 结束后高亮清理");
+
+  // ---- 通道 2：非 draggable 行（空白会话）用指针拖 ----
+  const s2 = document.getElementById("s2");
+  const pe = (type, x, y, extra = {}) =>
+    s2.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1, pointerType: "mouse", ...extra }));
+  calls.length = 0;
+  pe("pointerdown", 30, 90);
+  pe("pointermove", 32, 92); // 位移不足阈值
+  log(calls.length === 0, "小位移不算拖拽（不会误触发）");
+  document.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, cancelable: true, clientX: 40, clientY: 160, button: 0, buttons: 1, pointerType: "mouse" }));
+  await frame();
+  await frame();
+  log(document.getElementById("wsB").getAttribute("data-dsh-migra-clean-drop") === "true", "通道2 悬停目标工作区时高亮（合帧后 ≤2 帧）");
+  log(document.body.getAttribute("data-dsh-migra-clean-dragging") === "true", "通道2 进入拖拽态");
+  document.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, clientX: 40, clientY: 160, button: 0, buttons: 0, pointerType: "mouse" }));
+  await tick(60);
+  const mv2 = calls.find((c) => c.body && c.body.sessionId === "s2");
+  log(Boolean(mv2) && mv2.body.targetWorkspaceId === "wsB", "通道2 pointerup 触发迁移 s2 -> wsB");
+
+  // ---- 拖拽后吞掉那次 click ----
+  const clickAfter = new MouseEvent("click", { bubbles: true, cancelable: true });
+  s2.dispatchEvent(clickAfter);
+  log(clickAfter.defaultPrevented, "拖拽后的 click 被吞掉（不会顺带打开会话）");
+
+  // ---- 普通点击不受影响 ----
+  const plain = new MouseEvent("click", { bubbles: true, cancelable: true });
+  document.getElementById("wsA").dispatchEvent(plain);
+  log(!plain.defaultPrevented, "普通点击正常放行");
+
+  // ---- 性能：同一会话的连续拖拽复用归属缓存，不再重复请求 ----
+  calls.length = 0;
+  for (let i = 0; i < 2; i++) {
+    document.getElementById("s1").dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    await tick(30);
+    document.getElementById("s1").dispatchEvent(new DragEvent("dragend", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    await tick(10);
+  }
+  const wsCalls = calls.filter((c) => String(c.url).includes("/workspaces")).length;
+  log(wsCalls === 1, `归属信息缓存命中：两次拖拽只请求 1 次（实际 ${wsCalls} 次）`);
+
+  clearTimeout(watchdog);
+  out.push("DONE");
+  paint();
+})().catch((e) => {
+  document.getElementById("out").textContent = "THREW " + ((e && e.stack) || e);
+});
+</script>
