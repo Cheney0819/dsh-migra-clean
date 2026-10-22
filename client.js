@@ -201,15 +201,18 @@ window.__ModuleLoader__.load({
 
     const CSS = `
 .dsh-migra-clean-menu{position:fixed;z-index:2147483000;min-width:190px;padding:4px;border-radius:10px;
-  background:var(--dsw-alias-bg-overlay);color:var(--dsw-alias-label-primary);
-  border:1px solid var(--dsw-alias-border-l1);
-  box-shadow:0 14px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.08);
+  background:var(--dsw-alias-bg-overlay, #24242b);color:var(--dsw-alias-label-primary, #e6e6e6);
+  border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.14));
+  box-shadow:0 14px 32px rgba(0,0,0,.22);
   font-size:13px;line-height:1.4;animation:dsh-migra-clean-pop .1s ease-out}
-.dsh-migra-clean-menu-item{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-radius:6px;
-  background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.dsh-migra-clean-menu-item:hover,.dsh-migra-clean-menu-item:focus-visible{background:var(--dsw-alias-interactive-bg-hover);outline:none}
-.dsh-migra-clean-menu-item[data-tone="danger"]:hover,.dsh-migra-clean-menu-item[data-tone="danger"]:focus-visible{background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary)}
+.dsh-migra-clean-menu-item,.dsh-migra-clean-menuitem{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-radius:6px;
+  background:transparent;color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.dsh-migra-clean-menu-item:hover,.dsh-migra-clean-menu-item:focus-visible,
+.dsh-migra-clean-menuitem:hover,.dsh-migra-clean-menuitem:focus-visible{background:var(--dsw-alias-interactive-bg-hover);outline:none}
 .dsh-migra-clean-menu-item[data-tone="danger"]{color:var(--dsw-alias-state-error-primary)}
+.dsh-migra-clean-menu-item[data-tone="danger"]:hover,.dsh-migra-clean-menu-item[data-tone="danger"]:focus-visible,
+.dsh-migra-clean-menuitem[data-tone="danger"]:hover,.dsh-migra-clean-menuitem[data-tone="danger"]:focus-visible{background:var(--dsw-alias-interactive-bg-hover-danger)}
+.dsh-migra-clean-menuitem[data-tone="danger"]{color:var(--dsw-alias-state-error-primary)}
 .dsh-migra-clean-menu-divider{height:1px;margin:4px 6px;background:var(--dsw-alias-border-l1)}
 
 /* 拖拽：可落点提示 + 当前悬停目标 */
@@ -218,12 +221,6 @@ window.__ModuleLoader__.load({
   background:var(--dsw-alias-interactive-bg-hover)}
 [data-dsh-migra-clean-dragging="true"]{cursor:grabbing !important}
 
-.dsh-migra-clean-menuitem{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;border-radius:6px;
-  background:transparent;color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer}
-.dsh-migra-clean-menuitem:hover,.dsh-migra-clean-menuitem:focus-visible{background:var(--dsw-alias-interactive-bg-hover);outline:none}
-.dsh-migra-clean-menuitem[data-tone="danger"]:hover,.dsh-migra-clean-menuitem[data-tone="danger"]:focus-visible{background:var(--dsw-alias-interactive-bg-hover-danger)}
-.dsh-migra-clean-menuitem[data-tone="danger"]{color:var(--dsw-alias-state-error-primary)}
-
 .dsh-migra-clean-header-btn{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:6px;
   border:1px solid var(--dsw-alias-border-l1);background:transparent;color:var(--dsw-alias-label-secondary);
   font:inherit;font-size:12px;cursor:pointer;transition:background .12s,color .12s}
@@ -231,11 +228,11 @@ window.__ModuleLoader__.load({
 .dsh-migra-clean-header-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 
 .dsh-migra-clean-scrim{position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;
-  padding:24px;background:var(--dsw-alias-bg-mask-1,rgba(0,0,0,.42));backdrop-filter:saturate(120%) blur(1px);
+  padding:24px;background:var(--dsw-alias-bg-mask-1, rgba(0,0,0,.45));backdrop-filter:saturate(120%) blur(1px);
   pointer-events:auto;animation:dsh-migra-clean-fade .12s ease-out}
 .dsh-migra-clean-dialog{width:min(460px,100%);max-height:min(82vh,660px);display:flex;flex-direction:column;padding:18px;
-  border-radius:14px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);
-  border:1px solid var(--dsw-alias-border-l1);box-shadow:0 26px 64px rgba(0,0,0,.3);
+  box-sizing:border-box;border-radius:14px;background:var(--dsw-alias-bg-layer-1, #1f1f24);color:var(--dsw-alias-label-primary, #e6e6e6);
+  border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.14));box-shadow:0 26px 64px rgba(0,0,0,.3);
   font-size:13px;animation:dsh-migra-clean-rise .16s cubic-bezier(.16,1,.3,1)}
 .dsh-migra-clean-dialog-head{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
 .dsh-migra-clean-dialog-head svg{opacity:.9}
@@ -319,7 +316,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.3.5";
+    const STYLE_VERSION = "1.3.6";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
@@ -327,6 +324,9 @@ window.__ModuleLoader__.load({
     const STYLE_UID = `${STYLE_VERSION}-${Math.random().toString(36).slice(2, 8)}`;
 
     function ensureStyles() {
+      // 幂等：本 uid 已在场就直接返回，避免 OverlayHost 反复挂载时重复插入
+      const existing = document.head.querySelector(`style[data-dsh-migra-clean-css="${STYLE_UID}"]`);
+      if (existing) return existing;
       // 清掉旧版本遗留的（旧 id、旧 attribute、以及 data-dsh-migra-clean-css 但不是本 uid）
       for (const stale of Array.from(document.querySelectorAll(
         "style[data-dsh-migra-clean-css], style[data-dsh-del-css], style[data-dsh-del], style#dsh-del-styles"
@@ -425,16 +425,8 @@ window.__ModuleLoader__.load({
           className: "dsh-migra-clean-menu",
           role: "menu",
           "aria-label": "会话操作",
+          // 只内联动态位置；静态样式全部交给 CSS（带兜底色，即使 token 缺失也不裸奔）
           style: {
-            position: "fixed",
-            zIndex: 2147483000,
-            minWidth: 190,
-            padding: 4,
-            borderRadius: 10,
-            background: "var(--dsw-alias-bg-overlay, #24242b)",
-            color: "var(--dsw-alias-label-primary, #e6e6e6)",
-            border: "1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.14))",
-            boxShadow: "0 14px 32px rgba(0,0,0,.22)",
             left: pos.left,
             top: pos.top,
           },
@@ -533,15 +525,7 @@ window.__ModuleLoader__.load({
           className: "dsh-migra-clean-scrim",
           // 内联兜底：即使样式表因任何原因没生效，弹窗也必须是全屏居中、可读、可点
           style: {
-            position: "fixed",
-            inset: 0,
-            zIndex: 2147483001,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
             background: "rgba(0,0,0,.45)",
-            pointerEvents: "auto",
           },
           onMouseDown: (event) => {
             if (event.target === event.currentTarget) closeRef.current();
@@ -552,17 +536,8 @@ window.__ModuleLoader__.load({
           {
             ref: frameRef,
             className: "dsh-migra-clean-dialog",
+            // 内联只保留 font：CSS 里没有它，且弹窗必须可读；其余全部由 CSS 承担
             style: {
-              boxSizing: "border-box",
-              width: "min(460px, 100%)",
-              maxHeight: "min(82vh, 660px)",
-              display: "flex",
-              flexDirection: "column",
-              padding: 18,
-              borderRadius: 14,
-              background: "var(--dsw-alias-bg-layer-1, #1f1f24)",
-              color: "var(--dsw-alias-label-primary, #e6e6e6)",
-              border: "1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.14))",
               font: "13px/1.45 system-ui, -apple-system, sans-serif",
             },
             role: "dialog",
@@ -1234,6 +1209,9 @@ window.__ModuleLoader__.load({
     function onClickCaptureGuard(event) {
       if (Date.now() > swallowClickUntil) return;
       swallowClickUntil = 0;
+      // 只吞会话行上的点击——拖拽落点在工作区行，拖拽后的合法点击（点工作区行、工具栏等）不应被吞
+      const row = event.target && typeof event.target.closest === "function" ? event.target.closest(SESSION_ROW_SELECTOR) : null;
+      if (!row) return;
       event.stopPropagation();
       event.preventDefault();
     }
