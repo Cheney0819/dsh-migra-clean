@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.3.2-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.3.3-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -57,98 +57,25 @@ Harness 的会话天然绑定工作区（工作目录）。日常会出现两类
 
 ## 安装
 
-插件由「宿主半边」（`lib/index.js`）+「客户端半边」（`client.js`）组成，靠 `package.json` 里 `dsh.bundle.patch` 指向的 `cordis.patch.yml` 注册进 profile。
-
-「装好了」= 两件事同时成立：
-
-1. 包文件进了 `<profile>/node_modules/`
-2. 包名出现在 `<profile>/package.json` 的 `dsh.profile.bundles` 数组里 ← **少了这步就是「装了但不挂载」**
-
-> `DSH_HOME` 默认 `~/.dsh`，profile 目录是 `$DSH_HOME/profiles/<profile>`，桌面端一般叫 `desktop`。
-
-### 方式一：让 AI 帮你装（新手推荐）
-
-把下面整段复制给任意 AI 编程助手（Claude Code / Cursor / DeepSeek Harness 内的代理都可以）：
+一句话丢给 AI 助手就行（仓库根目录的 [AGENTS.md](AGENTS.md) 是写给 AI 的安装契约）：
 
 ```text
-请帮我安装 DeepSeek Harness 插件 dsh-migra-clean（GitHub: Cheney0819/dsh-migra-clean）。
-按顺序执行，不确定时只做只读排查，不要删除任何既有文件：
-
-1. 定位 profile：$DSH_HOME（默认 ~/.dsh）下的 profiles/<profile>，桌面端一般是 profiles/desktop；
-   若存在多个 profile，列出候选先问我选哪个。
-2. 安装包：在 profile 目录执行
-   dsh plugin --profile <profile> add github:Cheney0819/dsh-migra-clean#v1.3.2
-   若 dsh 不在 PATH，改用：pnpm add github:Cheney0819/dsh-migra-clean#v1.3.2；
-   网络受限时：git clone 后 pnpm add file:/绝对路径。
-3. 注册为 bundle：编辑 <profile>/package.json，把 "dsh-migra-clean" 追加进 dsh.profile.bundles
-   （已存在则跳过），保证 JSON 合法、其他字段一个字节都别动。
-4. 重启 DeepSeek Harness（宿主端代码没有热替换，必须重启才算生效）。
-5. 验证：侧边栏任一会话上右键应出现「移动到其他工作区」「彻底删除会话」；
-   把会话拖到另一个工作区应弹出确认弹窗。
-6. 汇报：实际使用的 profile、安装规格、bundles 是否包含该包、验证结果；
-   失败时贴出完整报错原文，不要自行删文件重装。
+帮我安装这个插件：https://github.com/Cheney0819/dsh-migra-clean
 ```
 
-### 方式二：命令行安装（三条命令）
+或者自己敲三条命令：
 
 ```bash
-# 1) 装包（pin 到 tag 更稳；追新可用 main）
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.2
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.3
 
-# 2) 登记 bundle（漏了这步插件不会挂载）
+# 登记 bundle（漏了这步插件不挂载）
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 
-# 3) 重启 DeepSeek Harness
+# 然后重启 DeepSeek Harness（Node 半边没有热替换）
 ```
 
-`dsh plugin` 会把参数原样转发给 pnpm，因此下面这些规格都能用：
-
-| 规格 | 示例 |
-|---|---|
-| GitHub 简写 | `github:Cheney0819/dsh-migra-clean#v1.3.2` |
-| Git URL | `git+https://github.com/Cheney0819/dsh-migra-clean.git` |
-| 远程 tarball | `https://github.com/Cheney0819/dsh-migra-clean/archive/refs/tags/v1.3.2.tar.gz` |
-| 本地目录（开发用，软链进去） | `file:/Users/me/code/dsh-migra-clean` |
-
-### 方式三：手动拷目录（离线可用）
-
-```bash
-git clone https://github.com/Cheney0819/dsh-migra-clean.git
-cp -r dsh-migra-clean "$DSH_HOME/profiles/desktop/node_modules/"
-```
-
-再手工把这两处写进 `$DSH_HOME/profiles/desktop/package.json`：
-
-```jsonc
-{
-  "dependencies": { "dsh-migra-clean": "file:/absolute/path/to/dsh-migra-clean" },
-  "dsh": { "profile": { "bundles": ["dsh-migra-clean"] } }
-}
-```
-
-### 生效方式
-
-| 改动涉及 | 生效方式 |
-|---|---|
-| `client.js`（界面/菜单/拖拽/弹窗） | 刷新页面即可；宿主 HMR 通常直接推送 |
-| `lib/index.js`（删除/迁移/接口） | **必须重启 DeepSeek Harness**（Node 半边没有热替换） |
-
-### 怎么确认真的装好了
-
-```text
-客户端半边  → 侧边栏会话右键出现「移动到其他工作区」「彻底删除会话」
-宿主半边    → $DSH_HOME/logs 里出现 [dsh-migra-clean] 前缀的日志
-两者都不出现 → 九成是 dsh.profile.bundles 里没登记，或被别的 profile 抢了 cwd
-```
-
-### 卸载
-
-```bash
-dsh plugin --profile desktop remove dsh-migra-clean
-# 再从 package.json 的 dsh.profile.bundles 里删掉 "dsh-migra-clean"
-```
-
-> 卸载只影响插件本身：已经迁移过的会话留在新工作区，日志和 `cwd` 不回滚。
+- 完整安装说明（三种方式 / 规格表 / 验证 / 卸载 / 排障）：**[INSTALL.md](INSTALL.md)**
+- 生效方式：改 `client.js` 刷新页面即可；改 `lib/index.js` 必须重启宿主
 
 ## 使用
 
@@ -334,6 +261,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.3.3** | 安装体验：新增 `AGENTS.md`（AI 安装契约）与 `INSTALL.md`（三种方式+排障），README 安装章节压缩为一句话 + 三条命令 |
 | **1.3.2** | 安装文档重写：AI 一条指令 / 命令行三条命令 / 手动拷目录三种方式，修正 bundle 登记路径为 `dsh.profile.bundles` |
 | 1.3.1 | 内部命名收官：插件名、临时文件前缀、CSS 类名、`data-*`、插槽 id 全部统一；样式表版本化避免旧规则残留 |
 | 1.3.0 | 更名 `dsh-migra-clean`，包名/路由/前缀/文档同步 |
