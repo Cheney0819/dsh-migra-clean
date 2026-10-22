@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.3.5-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.3.6-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -73,12 +73,12 @@ github:Cheney0819/dsh-migra-clean
 curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-脚本做三件事：`dsh plugin add github:...#v1.3.5` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+脚本做三件事：`dsh plugin add github:...#v1.3.6` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
 
 ### ③ 手动三条（无 UI、无脚本时）
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.5
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.6
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 # 重启 DeepSeek Harness
 ```
@@ -271,6 +271,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.3.6** | 性能优化：ensureStyles 幂等化（不再重复插入样式表）、CSS 合并去冗余、projectKey 字符码比较替代正则、sessionLogFiles 一次 accessSync 替代两次 existsSync、writeFileAtomic 加 fsync 保障、workspace.json 两处改原子写、moveSession 用 Set 查找、拖拽点击吞噬只限会话行 |
 | **1.3.5** | 修 HMR 热重载竞态：改其他插件导致样式全丢，改为按随机 uid 隔离样式表实例 |
 | **1.3.4** | 安装再简化：新增 `install.sh` 一行脚本；文档改为「桌面插件页 → 脚本 → 手动」三级，说明宿主安装器会自动登记 bundle |
 | **1.3.3** | 安装体验：新增 `AGENTS.md`（AI 安装契约）与 `INSTALL.md`（三种方式+排障），README 安装章节压缩为一句话 + 三条命令 |
