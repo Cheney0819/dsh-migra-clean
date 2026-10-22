@@ -319,21 +319,24 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.3.1";
+    const STYLE_VERSION = "1.3.5";
 
-    // 关键：热重载时旧版本 effect 的清理可能没跑，页面上残留同 id 的旧样式表，
-    // 会让新 UI 完全没样式（整块退化成无样式流）。所以按版本号覆盖，绝不因“已存在”就跳过。
+    // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
+    // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
+    // 样式表（带随机 uid），cleanup 只删自己那个。旧版本残留（旧 id/旧 attribute）仍然清掉。
+    const STYLE_UID = `${STYLE_VERSION}-${Math.random().toString(36).slice(2, 8)}`;
+
     function ensureStyles() {
-      for (const stale of Array.from(document.querySelectorAll("style[data-dsh-migra-clean-css], style[data-dsh-del-css], style[data-dsh-del], style#dsh-del-styles"))) {
-        if (stale.getAttribute("data-dsh-migra-clean-css") !== STYLE_VERSION) stale.remove();
+      // 清掉旧版本遗留的（旧 id、旧 attribute、以及 data-dsh-migra-clean-css 但不是本 uid）
+      for (const stale of Array.from(document.querySelectorAll(
+        "style[data-dsh-migra-clean-css], style[data-dsh-del-css], style[data-dsh-del], style#dsh-del-styles"
+      ))) {
+        if (stale.getAttribute("data-dsh-migra-clean-css") !== STYLE_UID) stale.remove();
       }
-      let style = document.querySelector(`style[data-dsh-migra-clean-css="${STYLE_VERSION}"]`);
-      if (!style) {
-        style = document.createElement("style");
-        style.setAttribute("data-dsh-migra-clean-css", STYLE_VERSION);
-        style.textContent = CSS;
-        document.head.appendChild(style);
-      }
+      const style = document.createElement("style");
+      style.setAttribute("data-dsh-migra-clean-css", STYLE_UID);
+      style.textContent = CSS;
+      document.head.appendChild(style);
       return style;
     }
 
