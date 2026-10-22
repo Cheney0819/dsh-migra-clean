@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.3.3-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.3.4-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -57,25 +57,35 @@ Harness 的会话天然绑定工作区（工作目录）。日常会出现两类
 
 ## 安装
 
-一句话丢给 AI 助手就行（仓库根目录的 [AGENTS.md](AGENTS.md) 是写给 AI 的安装契约）：
+### ① 桌面端：点两下（推荐，零命令）
+
+侧栏 **插件** → **添加插件** → 粘贴下面这段 → **安装** → **立即启用** → 重启：
 
 ```text
-帮我安装这个插件：https://github.com/Cheney0819/dsh-migra-clean
+github:Cheney0819/dsh-migra-clean
 ```
 
-或者自己敲三条命令：
+宿主的安装器会自己把包装进 profile、把包名写进 `dsh.profile.bundles`（这一步手动做最容易漏），失败时还会把 `package.json` 还原。对话框接受包名、Git 地址、压缩包链接或本地绝对路径。
+
+### ② 终端：一行脚本
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.3
-
-# 登记 bundle（漏了这步插件不挂载）
-node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
-
-# 然后重启 DeepSeek Harness（Node 半边没有热替换）
+curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-- 完整安装说明（三种方式 / 规格表 / 验证 / 卸载 / 排障）：**[INSTALL.md](INSTALL.md)**
-- 生效方式：改 `client.js` 刷新页面即可；改 `lib/index.js` 必须重启宿主
+脚本做三件事：`dsh plugin add github:...#v1.3.4` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+
+### ③ 手动三条（无 UI、无脚本时）
+
+```bash
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.4
+node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
+# 重启 DeepSeek Harness
+```
+
+- 一句话交给 AI 也行：`帮我安装这个插件：https://github.com/Cheney0819/dsh-migra-clean`（[AGENTS.md](AGENTS.md) 是写给 AI 的安装契约）
+- 完整说明 / 排障表 / 卸载：**[INSTALL.md](INSTALL.md)**
+- 生效方式：改 `client.js` 刷新页面；改 `lib/index.js` 必须重启宿主
 
 ## 使用
 
@@ -261,6 +271,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.3.4** | 安装再简化：新增 `install.sh` 一行脚本；文档改为「桌面插件页 → 脚本 → 手动」三级，说明宿主安装器会自动登记 bundle |
 | **1.3.3** | 安装体验：新增 `AGENTS.md`（AI 安装契约）与 `INSTALL.md`（三种方式+排障），README 安装章节压缩为一句话 + 三条命令 |
 | **1.3.2** | 安装文档重写：AI 一条指令 / 命令行三条命令 / 手动拷目录三种方式，修正 bundle 登记路径为 `dsh.profile.bundles` |
 | 1.3.1 | 内部命名收官：插件名、临时文件前缀、CSS 类名、`data-*`、插槽 id 全部统一；样式表版本化避免旧规则残留 |

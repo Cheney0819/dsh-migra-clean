@@ -13,23 +13,39 @@
 
 ---
 
-## 方式一：让 AI 装（一句话）
+## 方式 ①：桌面端插件页（零命令，推荐）
 
-把仓库地址丢给任意 AI 编程助手（Claude Code / Cursor / DeepSeek Harness 内的代理等），加一句：
+侧栏 **插件** → **添加插件** → 输入框粘贴 `github:Cheney0819/dsh-migra-clean` → **安装** → **立即启用** → 重启宿主。
+
+宿主安装器替你完成两件事：把包装进 `<profile>/node_modules`、把包名写进 `dsh.profile.bundles`（手动做最容易漏的那步），失败时还会还原 `package.json`。输入框同样接受包名、Git 地址、压缩包链接、本地绝对路径。
+
+## 方式 ②：一行脚本（终端）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
+```
+
+脚本等价于「装包 + 登记 bundle + 提示重启」，幂等可重复执行：
+
+| 参数 | 作用 |
+|---|---|
+| `--profile <名字>` | 目标 profile（默认 `desktop`） |
+| `--spec <规格>` | 自定义安装规格，如 `file:/绝对路径` |
+| `--no-install` | 只登记 bundle，不跑 pnpm（迁移/调试用） |
+
+## 方式 ③：让 AI 装（一句话）
 
 ```text
 帮我安装这个插件：https://github.com/Cheney0819/dsh-migra-clean
 ```
 
-仓库根目录的 [AGENTS.md](AGENTS.md) 就是写给 AI 的安装契约（定位 profile → 安装 → 登记 bundle → 重启 → 验证 → 失败回滚策略），AI 读完即可自行完成，无需你再解释。
+仓库根目录的 [AGENTS.md](AGENTS.md) 是写给 AI 的安装契约（定位 profile → 安装 → 登记 bundle → 重启 → 验证 → 失败回滚），AI 读完自行完成，无需你再解释。
 
----
-
-## 方式二：命令行（三条）
+## 方式 ④：命令行三条（无 UI 时）
 
 ```bash
 # 1) 装包（pin tag 更稳，追新可用 main）
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.3
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.4
 
 # 2) 登记 bundle（漏了不挂载；已存在会跳过）
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
@@ -41,14 +57,14 @@ node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/packa
 
 | 规格 | 示例 |
 |---|---|
-| GitHub 简写 | `github:Cheney0819/dsh-migra-clean#v1.3.3` |
+| GitHub 简写 | `github:Cheney0819/dsh-migra-clean#v1.3.4` |
 | Git URL | `git+https://github.com/Cheney0819/dsh-migra-clean.git` |
-| 远程 tarball | `https://github.com/Cheney0819/dsh-migra-clean/archive/refs/tags/v1.3.3.tar.gz` |
+| 远程 tarball | `https://github.com/Cheney0819/dsh-migra-clean/archive/refs/tags/v1.3.4.tar.gz` |
 | 本地目录（开发用，软链） | `file:/Users/me/code/dsh-migra-clean` |
 
 ---
 
-## 方式三：手动拷目录（离线）
+## 方式 ⑤：手动拷目录（离线）
 
 ```bash
 git clone https://github.com/Cheney0819/dsh-migra-clean.git
