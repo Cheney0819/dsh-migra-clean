@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.3.7-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.3.8-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -73,12 +73,12 @@ github:Cheney0819/dsh-migra-clean
 curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-脚本做三件事：`dsh plugin add github:...#v1.3.7` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+脚本做三件事：`dsh plugin add github:...#v1.3.8` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
 
 ### ③ 手动三条（无 UI、无脚本时）
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.7
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.8
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 # 重启 DeepSeek Harness
 ```
@@ -115,6 +115,7 @@ node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/packa
 
 - 悬停目标工作区会高亮；落在当前工作区会提示「无需迁移」并跳过。
 - 迁移期间左侧列表会立即反馈，不等刷新。
+- **迁移完成后不会整页刷新**：只有「你正在看的那个会话」被迁移时，客户端才会把主视图原地重挂一次（先放掉引用、再重新打开），这样被宿主 `session/disposed` 打上 removed 标记的旧实例会被丢弃、换成从新 cwd 重新读历史的新实例，输入框立刻可用；其它会话的迁移完全不碰主视图。
 
 ### 迁移弹窗
 
@@ -271,6 +272,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.3.8** | 去掉「迁移后整页刷新」：改为原地重挂主视图（只对被迁移且正在看的会话生效，其它会话不再被抢视图）；修首帧超过 64KB 时会话头读不出导致子会话漏搬、回滚拿不到原 cwd；修改写 cwd 会吃掉首帧里打包的其它事件；修回滚只挂回父会话、子会话变孤儿；迁移不再手写 workspace.json（整篇重写竞态），删除仅在拿不到 registry 时才兜底写；`cachedHeader` 命中路径省掉 2~3 次系统调用；子会话反查用 Set；拖拽归属补全不再重扫整棵 DOM；新增 `test/header.mjs`（zstd 多帧/大首帧/纯文本/projectKey 回归） |
 | **1.3.7** | 修宿主 HMR 样式连坐删除：样式表打 `data-plugin` 归属，改其他插件不再被认领回收；修迁移弹窗两行交界 hover 抖动（预览块固定高度 + 悬停不切当前行） |
 | **1.3.6** | 性能优化：ensureStyles 幂等化（不再重复插入样式表）、CSS 合并去冗余、projectKey 字符码比较替代正则、sessionLogFiles 一次 accessSync 替代两次 existsSync、writeFileAtomic 加 fsync 保障、workspace.json 两处改原子写、moveSession 用 Set 查找、拖拽点击吞噬只限会话行 |
 | **1.3.5** | 修 HMR 热重载竞态：改其他插件导致样式全丢，改为按随机 uid 隔离样式表实例 |

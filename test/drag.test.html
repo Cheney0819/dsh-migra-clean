@@ -65,7 +65,8 @@
     else payload = { ok: true };
     return { ok: true, status: 200, json: async () => payload };
   };
-  const ctx = { effect(fn) { fn(); }, get() { return false; }, on() {}, off() {}, emit() {}, slots: { inject() {}, register() { return () => {}; } } };
+  const services = {}; // 可热插拔的宿主服务（uiWorkspace / sessions …）
+  const ctx = { effect(fn) { fn(); }, get(name) { return services[name] || false; }, on() {}, off() {}, emit() {}, slots: { inject() {}, register() { return () => {}; } } };
   const face = window.__spec.factory(window.require);
   face.apply(ctx);
   const tick = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -128,6 +129,33 @@
   }
   const wsCalls = calls.filter((c) => String(c.url).includes("/workspaces")).length;
   log(wsCalls === 1, `归属信息缓存命中：两次拖拽只请求 1 次（实际 ${wsCalls} 次）`);
+
+  // ---- 迁移后不再整页刷新：改成原地重挂主视图 ----
+  const uiCalls = [];
+  services.sessions = { manager: { sessions: new Map() } }; // 没有残留实例 → 重挂有效
+  services.uiWorkspace = {
+    selection: { getSnapshot: () => ({ sessionId: "s1" }) },
+    mainReference: null,
+    clearMain() { uiCalls.push("clearMain"); },
+    openSession(id) { uiCalls.push("openSession:" + id); },
+  };
+  const dragTo = async (rowId, targetId) => {
+    document.getElementById(rowId).dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    await tick(30);
+    document.getElementById(targetId).dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    document.getElementById(targetId).dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: dt }));
+    await tick(80);
+  };
+
+  // 被移动的会话正是当前主视图 → clearMain + openSession 原地重挂，不刷新页面
+  await dragTo("s1", "wsB");
+  log(uiCalls.join(",") === "clearMain,openSession:s1", `主视图会话迁移后原地重挂（实际 ${uiCalls.join(" → ") || "无"}）`);
+
+  // 被移动的会话不是当前主视图 → 一次都不碰主视图（旧实现会 reload 整页 / 点行抢视图）
+  uiCalls.length = 0;
+  services.uiWorkspace.selection = { getSnapshot: () => ({ sessionId: "some-other-session" }) };
+  await dragTo("s1", "wsB");
+  log(uiCalls.length === 0, `非主视图会话迁移后不触碰主视图（实际 ${uiCalls.join(" → ") || "无"}）`);
 
   clearTimeout(watchdog);
   out.push("DONE");

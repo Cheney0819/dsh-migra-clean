@@ -38,6 +38,8 @@ window.__ModuleLoader__.load({
     const EMPTY_STATE = { menu: null, dialog: null, toasts: [] };
     let state = EMPTY_STATE;
     const listeners = new Set();
+    // 插件自己的客户端上下文：迁移成功后要借它拿 uiWorkspace 做「原地重挂」
+    let activeCtx = null;
 
     function publish(patch) {
       state = typeof patch === "function" ? patch(state) : { ...state, ...patch };
@@ -320,7 +322,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.3.7";
+    const STYLE_VERSION = "1.3.8";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
@@ -1016,6 +1018,18 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * 只摘掉某一个工作区行的落点标记。
+     * 归属信息是异步补全的，补全后没必要为一行重扫整棵 DOM（旧实现是重跑一遍
+     * markDropzones，等于每次拖拽两次全量 querySelectorAll + 全量属性写）。
+     */
+    function unmarkDropzone(workspaceId) {
+      if (!workspaceId) return;
+      const mark = workspaceMarks.find((m) => m.id === workspaceId);
+      const row = mark ? mark.row : workspaceRowForId(workspaceId);
+      if (row) row.removeAttribute("data-dsh-migra-clean-dropzone");
+    }
+
     function beginDrag(sessionId, title) {
       const token = ++dragToken;
       dragState = { sessionId, title: title || "", currentWorkspaceId: null, targetId: null };
@@ -1028,7 +1042,7 @@ window.__ModuleLoader__.load({
       if (fresh) {
         // 命中缓存：直接用，不再发请求（这里曾被写成「命中仍然发请求、只是忽略结果」，等于白缓存）
         dragState.currentWorkspaceId = cached.currentWorkspaceId || null;
-        markDropzones(dragState.currentWorkspaceId);
+        unmarkDropzone(dragState.currentWorkspaceId);
         return dragState;
       }
 
@@ -1041,7 +1055,7 @@ window.__ModuleLoader__.load({
             if (!always) return;
             if (!dragState || token !== dragToken) return;
             dragState.currentWorkspaceId = currentWorkspaceId;
-            markDropzones(currentWorkspaceId);
+            unmarkDropzone(currentWorkspaceId);
           })
           .catch(() => {});
       };
@@ -1082,6 +1096,85 @@ window.__ModuleLoader__.load({
       return state;
     }
 
+    // ---- 迁移成功后的主视图处置 ----
+    //
+    // 为什么不再整页刷新：迁移时后端会 quiesce 掉宿主里的活会话，宿主随即广播
+    // session/disposed → api-session/removed，客户端那份 Session 实例被
+    // handleRemoved() 永久置 removed=true（输入框从此只读），而只有换一个新实例
+    // 才能清掉这个标记。uiWorkspace.clearMain() 会释放 mainView 引用 → 客户端
+    // retireScope → manager.drop 掉旧实例；紧接着 openSession() 重新 retain，
+    // 拿到的就是干净实例，并会按新 cwd 重新从磁盘拉历史。
+    // 侧边栏分组本来就走 domain/changed 增量，从来不需要刷新。
+
+    /** 本浏览器主视图当前显示的会话 ID；拿不到返回 null。 */
+    function currentMainSessionId() {
+      const ctx = activeCtx;
+      if (!ctx || typeof ctx.get !== "function") return null;
+      try {
+        const ui = ctx.get("uiWorkspace", false);
+        if (!ui) return null;
+        const selection = ui.selection;
+        if (selection && typeof selection.getSnapshot === "function") {
+          const snapshot = selection.getSnapshot();
+          if (snapshot && typeof snapshot.sessionId === "string") return snapshot.sessionId;
+        }
+        const reference = ui.mainReference;
+        if (reference && typeof reference.sessionId === "string") return reference.sessionId;
+      } catch {}
+      return null;
+    }
+
+    /** 把主视图上的会话原地重挂一次（丢弃被 removed 污染的旧实例）。 */
+    function remountMainSession(sessionId) {
+      const ctx = activeCtx;
+      if (!ctx || typeof ctx.get !== "function") return false;
+      try {
+        const ui = ctx.get("uiWorkspace", false);
+        if (!ui || typeof ui.clearMain !== "function" || typeof ui.openSession !== "function") return false;
+        ui.clearMain();
+        ui.openSession(sessionId);
+        return true;
+      } catch (err) {
+        console.warn("[dsh-migra-clean] 原地重挂会话失败:", err);
+        return false;
+      }
+    }
+
+    /**
+     * 重挂之后确认「旧实例真的被换掉了」。
+     * 客户端 Session 的 removed 标记一旦置位就不会自己复位，只有旧实例被引用计数
+     * 归零后丢弃、再重新 materialize 才会消失；如果还有别的视图（右侧栏等）持有它，
+     * 重挂等于白挂，这时候必须让调用方走兜底。
+     */
+    function isClientSessionRemoved(sessionId) {
+      const ctx = activeCtx;
+      if (!ctx || typeof ctx.get !== "function") return false;
+      try {
+        const sessions = ctx.get("sessions", false);
+        const manager = sessions && sessions.manager;
+        if (!manager) return false;
+        const map = manager.sessions;
+        const session = map && typeof map.get === "function" ? map.get(sessionId) : null;
+        return Boolean(session && session.removed);
+      } catch {
+        return false;
+      }
+    }
+
+    /**
+     * 迁移成功后收尾：只有「本浏览器正在看这个会话」才需要处理——
+     * 其它会话的客户端实例没有被 removed 广播污染，点它反而会把用户正在看的
+     * 会话顶掉（旧实现就是这个毛病）。
+     */
+    function afterMoveSession(sessionId, wasLive) {
+      if (currentMainSessionId() !== sessionId) return;
+      if (remountMainSession(sessionId) && !isClientSessionRemoved(sessionId)) return;
+      // 走到这里只有两种可能：宿主太老没有 uiWorkspace，或者这个会话还被别的视图
+      // （右侧栏等）持有、引用计数没归零所以旧实例没被丢弃。此时活会话确实会卡死
+      // 输入框，只能退回整页刷新。
+      if (wasLive) setTimeout(() => window.location.reload(), 700);
+    }
+
     async function moveToWorkspace(sessionId, title, workspaceId) {
       if (!sessionId || !workspaceId) return;
       toast(title ? `正在移动「${title}」…` : "正在移动会话…", "info");
@@ -1095,14 +1188,7 @@ window.__ModuleLoader__.load({
         workspaceMetaCache.delete(sessionId);
         const extra = data.movedChildren ? `（含 ${data.movedChildren} 个子会话）` : "";
         toast(`已移至【${data.targetWorkspaceTitle}】${extra}`, "success");
-        if (data.wasLive) {
-          setTimeout(() => window.location.reload(), 700);
-        } else {
-          setTimeout(() => {
-            const row = document.querySelector(`[data-row-key="session:${sessionId}"]`);
-            if (row && typeof row.click === "function") row.click();
-          }, 250);
-        }
+        afterMoveSession(sessionId, data.wasLive);
       } catch (err) {
         toast(err && err.message ? err.message : "迁移失败", "error");
       }
@@ -1263,15 +1349,8 @@ window.__ModuleLoader__.load({
       }
       const extra = result.movedChildren ? `（含 ${result.movedChildren} 个子会话）` : "";
       toast(`已移至【${result.targetWorkspaceTitle}】${extra}`, "success");
-      if (result.wasLive) {
-        // 被移动的会话刚才在占用中，其客户端实例已被原生注销，刷新一次保证以全新实例加载
-        setTimeout(() => window.location.reload(), 700);
-      } else {
-        setTimeout(() => {
-          const row = document.querySelector(`[data-row-key="session:${sessionId}"]`);
-          if (row && typeof row.click === "function") row.click();
-        }, 250);
-      }
+      workspaceMetaCache.delete(sessionId);
+      afterMoveSession(sessionId, result.wasLive);
     }
 
     async function runDelete(sessionId, displayTitle) {
@@ -1382,12 +1461,14 @@ window.__ModuleLoader__.load({
     // ------------------------------------------------------------------
 
     exports.apply = function (ctx) {
+      activeCtx = ctx;
       ctx.effect(() => {
         const removeStyles = injectStyles();
         return () => {
           removeStyles();
           listeners.clear();
           state = EMPTY_STATE;
+          if (activeCtx === ctx) activeCtx = null;
         };
       }, "dsh-migra-clean: overlay");
 
