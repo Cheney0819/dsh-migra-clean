@@ -83,6 +83,37 @@ try {
   log(__test.projectKey("/") === "--root--", "projectKey 根路径");
   log(__test.projectKey("/tmp/中文 目录") === "--tmp-~4E2D~6587~0020~76EE~5F55--", "projectKey 非 ASCII 与空格转义");
   log(__test.projectKey("/a//b::c") === "--a-b-c--", "projectKey 连续分隔符折叠");
+
+  // 6) 目录索引：写操作必须看到「刚出现」的目录（否则删除会静默漏删、会话复活）
+  const idxRoot = path.join(root, "idx-sessions");
+  const projA = path.join(idxRoot, "--proj-a--");
+  fs.mkdirSync(projA, { recursive: true });
+  __test.invalidateSessionCaches();
+  const cached = __test.sessionIndex(idxRoot);
+  log(cached.dirsByName.has("session-abc") === false, "索引初始为空");
+
+  fs.mkdirSync(path.join(projA, "session-abc"), { recursive: true });
+  log(__test.sessionIndex(idxRoot) === cached, "TTL 内命中同一份缓存（不会重复扫盘）");
+  log(__test.sessionIndex(idxRoot).dirsByName.has("session-abc") === false, "TTL 缓存看不到新目录（旧实现因此漏删）");
+  log(__test.freshSessionIndex(idxRoot).dirsByName.has("session-abc") === true, "freshSessionIndex 绕过 TTL 能看到新目录");
+  log(__test.sessionIndex(idxRoot).dirsByName.has("session-abc") === true, "强制重扫后普通读取也更新了");
+
+  // 7) 预落盘：只对活会话生效，且不能把异常吞成「成功」
+  let flushCalls = 0;
+  const fakeCtx = (withSession) => ({
+    get(name) {
+      if (name !== "sessions") return false;
+      return {
+        get: (id) => (withSession && id === "session-abc" ? { id } : undefined),
+        flush: async () => {
+          flushCalls += 1;
+        },
+      };
+    },
+  });
+  log((await __test.flushSessionLog(fakeCtx(true), "session-abc")) === true && flushCalls === 1, "活会话会预落盘一次");
+  log((await __test.flushSessionLog(fakeCtx(false), "session-abc")) === false && flushCalls === 1, "非活会话不做预落盘");
+  log((await __test.flushSessionLog({ get: () => false }, "session-abc")) === false, "缺 sessions 服务时安全返回 false");
 } finally {
   fs.rmSync(root, { recursive: true, force: true });
 }

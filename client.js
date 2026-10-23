@@ -322,7 +322,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.3.8";
+    const STYLE_VERSION = "1.3.9";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
