@@ -27,6 +27,7 @@ window.__ModuleLoader__.load({
     const h = react.createElement;
     const useState = react.useState;
     const useEffect = react.useEffect;
+    const useLayoutEffect = react.useLayoutEffect || react.useEffect;
     const useMemo = react.useMemo;
     const useRef = react.useRef;
 
@@ -86,12 +87,14 @@ window.__ModuleLoader__.load({
     }
 
     function openConfirm(config) {
+      closeDialog(false);
       return new Promise((resolve) => {
         publish({ dialog: { kind: "confirm", resolve, ...config } });
       });
     }
 
     function openMove(config) {
+      closeDialog(false);
       return new Promise((resolve) => {
         publish({ dialog: { kind: "move", resolve, ...config } });
       });
@@ -133,6 +136,7 @@ window.__ModuleLoader__.load({
     }
 
     function formatTime(ms) {
+      if (!ms || isNaN(Number(ms))) return "";
       try {
         const date = new Date(ms);
         const now = Date.now();
@@ -267,16 +271,15 @@ window.__ModuleLoader__.load({
 .dsh-migra-clean-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:999px;
   border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
 /* 说明块：无填充底色、无装饰条，只留一圈发丝边框；就绪时边框转主色。
-   min-height 固定整块高度（就绪态 = cwd 行 + 说明，最高的一态）：hover 切换
-   active 时三态（ready/current/idle）内容不同高，弹窗垂直居中，高度一变列表就
-   上下平移，指针在两行交界处会来回命中相邻行，形成 hover→位移→hover 的抖动。 */
+   固定高度 104px（ready/current/idle 三态严格同高）：彻底消除任何 hover 状态切换
+   带来的高度变化，避免弹窗垂直居中位移引发的边界抖动。 */
 .dsh-migra-clean-preview{display:flex;flex-direction:column;gap:6px;
   padding:9px 10px;border-radius:9px;margin-bottom:4px;background:transparent;
-  box-sizing:border-box;min-height:102px;
+  box-sizing:border-box;height:104px;min-height:104px;max-height:104px;overflow:hidden;
   border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.22));
   transition:border-color .12s ease}
 .dsh-migra-clean-preview[data-state="ready"]{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#4c8dff) 34%,transparent)}
-.dsh-migra-clean-preview-note{min-height:5.2em}
+.dsh-migra-clean-preview-note{font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary,#6b7280);overflow:hidden;text-overflow:ellipsis}
 .dsh-migra-clean-preview-flag{flex:none;font-size:10.5px;padding:1px 6px;border-radius:999px;
   border:1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.32));color:var(--dsw-alias-label-secondary, #6b7280)}
 .dsh-migra-clean-preview-row{display:flex;align-items:baseline;gap:7px;min-width:0;font-size:11.5px}
@@ -285,7 +288,6 @@ window.__ModuleLoader__.load({
 .dsh-migra-clean-preview-path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
   color:var(--dsw-alias-label-primary,inherit);word-break:break-all}
-.dsh-migra-clean-preview-note{font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary,#6b7280)}
 .dsh-migra-clean-empty{padding:18px 12px;text-align:center;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .dsh-migra-clean-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding-top:12px;
   border-top:1px solid var(--dsw-alias-border-l1)}
@@ -322,7 +324,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.3.9";
+    const STYLE_VERSION = "1.4.0";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
@@ -336,7 +338,13 @@ window.__ModuleLoader__.load({
     // 自己被热更时宿主才回收，而我们自己的 apply 随即重建（下面 uid 独立样式表）。
     const STYLE_OWNER = "dsh-migra-clean";
 
+    let cachedStyleEl = null;
+
     function ensureStyles() {
+      // 快速路径：本 uid 节点已缓存且仍在 DOM 树中，直接返回，避免反复 querySelector
+      if (cachedStyleEl && cachedStyleEl.isConnected) {
+        return cachedStyleEl;
+      }
       // 幂等：本 uid 已在场就直接返回，避免 OverlayHost 反复挂载时重复插入
       const existing = document.head.querySelector(`style[data-dsh-migra-clean-css="${STYLE_UID}"]`);
       if (existing) {
@@ -344,6 +352,7 @@ window.__ModuleLoader__.load({
         if (existing.getAttribute("data-plugin") !== STYLE_OWNER) {
           existing.setAttribute("data-plugin", STYLE_OWNER);
         }
+        cachedStyleEl = existing;
         return existing;
       }
       // 清掉旧版本遗留的（旧 id、旧 attribute、以及 data-dsh-migra-clean-css 但不是本 uid）
@@ -357,6 +366,7 @@ window.__ModuleLoader__.load({
       style.setAttribute("data-plugin", STYLE_OWNER);
       style.textContent = CSS;
       document.head.appendChild(style);
+      cachedStyleEl = style;
       return style;
     }
 
@@ -390,11 +400,13 @@ window.__ModuleLoader__.load({
     // 右键菜单
     // ------------------------------------------------------------------
 
+    let menuSeed = 0;
+
     function ContextMenu({ menu }) {
       const ref = useRef(null);
       const [pos, setPos] = useState({ left: menu.x, top: menu.y });
 
-      useEffect(() => {
+      useLayoutEffect(() => {
         const node = ref.current;
         if (!node) return;
         const rect = node.getBoundingClientRect();
@@ -403,11 +415,17 @@ window.__ModuleLoader__.load({
         const top = Math.max(margin, Math.min(menu.y, window.innerHeight - rect.height - margin));
         setPos({ left, top });
         const first = node.querySelector("button");
-        if (first && typeof first.focus === "function") first.focus();
+        if (first && typeof first.focus === "function") {
+          // preventScroll: 避免聚焦时触发浏览器自动滚动，进而导致捕获阶段的 scroll 监听直接自杀
+          first.focus({ preventScroll: true });
+        }
       }, [menu.x, menu.y]);
 
       useEffect(() => {
+        const openedAt = Date.now();
         const onPointerDown = (event) => {
+          // 忽略唤起瞬间（120ms内）同一手势残余的 pointerdown（如 Mac 触控板两指微差着陆或按键回弹）
+          if (Date.now() - openedAt < 120) return;
           if (!ref.current || !ref.current.contains(event.target)) closeMenu();
         };
         const onKeyDown = (event) => {
@@ -417,17 +435,23 @@ window.__ModuleLoader__.load({
             closeMenu();
           }
         };
-        const dismiss = () => closeMenu();
+        const onWheel = (event) => {
+          // 只有用户在菜单外部滚动滚轮/触控板双指滑动时才关闭；绝不监听捕获阶段的 DOM scroll（防止鼠标滑过会话行时因 title 跑马灯 scrollLeft 或子容器微动导致菜单暴毙）
+          if (ref.current && ref.current.contains(event.target)) return;
+          if (Date.now() - openedAt < 250) return;
+          closeMenu();
+        };
+        const onResize = () => closeMenu();
         const timer = setTimeout(() => document.addEventListener("pointerdown", onPointerDown, true), 0);
         document.addEventListener("keydown", onKeyDown, true);
-        window.addEventListener("resize", dismiss);
-        window.addEventListener("scroll", dismiss, true);
+        window.addEventListener("resize", onResize);
+        window.addEventListener("wheel", onWheel, { passive: true });
         return () => {
           clearTimeout(timer);
           document.removeEventListener("pointerdown", onPointerDown, true);
           document.removeEventListener("keydown", onKeyDown, true);
-          window.removeEventListener("resize", dismiss);
-          window.removeEventListener("scroll", dismiss, true);
+          window.removeEventListener("resize", onResize);
+          window.removeEventListener("wheel", onWheel, { passive: true });
         };
       }, []);
 
@@ -656,11 +680,12 @@ window.__ModuleLoader__.load({
       const listRef = useRef(null);
       const navScrollRef = useRef(false);
 
-      // 标题兜底：调用方没给标题（例如只从会话头部按钮进来）时，向宿主再问一次
+      // 标题兜底：调用方没给标题（例如只从会话头部按钮进来）时，优先用工作区返回的会话元信息，必要时向宿主再问一次
       const [fallbackTitle, setFallbackTitle] = useState("");
       useEffect(() => {
         let alive = true;
-        if (!(dialog.sessionTitle || "").trim()) {
+        const existing = (dialog.sessionTitle || "").trim() || (payload && payload.session && payload.session.title);
+        if (!existing) {
           getJson(`/api/dsh-migra-clean/info?sessionId=${encodeURIComponent(dialog.sessionId)}`)
             .then((data) => {
               if (alive && data && data.ok && data.title) setFallbackTitle(String(data.title).trim());
@@ -670,7 +695,7 @@ window.__ModuleLoader__.load({
         return () => {
           alive = false;
         };
-      }, [dialog.sessionId, dialog.sessionTitle]);
+      }, [dialog.sessionId, dialog.sessionTitle, payload]);
 
       useEffect(() => {
         let alive = true;
@@ -797,7 +822,10 @@ window.__ModuleLoader__.load({
           "div",
           { className: "dsh-migra-clean-dialog-desc" },
           (() => {
-            const shown = (dialog.sessionTitle || "").trim() || fallbackTitle;
+            const shown =
+              (dialog.sessionTitle || "").trim() ||
+              (payload && payload.session && (payload.session.title || "").trim()) ||
+              fallbackTitle;
             return shown ? `会话：“${shown}”` : "会话：未命名会话";
           })()
         ),
@@ -852,11 +880,9 @@ window.__ModuleLoader__.load({
                         setActive(index);
                         move(w);
                       },
-                      // 悬停不切到「当前」行：那会让预览在 ready/current 两态间
-                      // 交换高度，列表上下平移，指针在两行交界处抖个不停（与
-                      // 上面键盘滚动的修复同一类问题）
+                      // 悬停不切到「当前」行，且相同索引避免重复重渲染
                       onMouseEnter: () => {
-                        if (!isCurrent) setActive(index);
+                        if (!isCurrent && active !== index) setActive(index);
                       },
                     },
                     h(
@@ -928,7 +954,7 @@ window.__ModuleLoader__.load({
       return h(
         react.Fragment,
         null,
-        menu ? h(ContextMenu, { key: "menu", menu }) : null,
+        menu ? h(ContextMenu, { key: "menu-" + (menu.id || menu.sessionId), menu }) : null,
         dialog
           ? dialog.kind === "move"
             ? h(MoveDialog, { key: "move", dialog })
@@ -999,7 +1025,10 @@ window.__ModuleLoader__.load({
       return null;
     }
 
+    let activeDropRow = null;
+
     function clearDragMarks() {
+      activeDropRow = null;
       for (const el of document.querySelectorAll("[data-dsh-migra-clean-drop], [data-dsh-migra-clean-dropzone]")) {
         el.removeAttribute("data-dsh-migra-clean-drop");
         el.removeAttribute("data-dsh-migra-clean-dropzone");
@@ -1068,11 +1097,19 @@ window.__ModuleLoader__.load({
       if (!dragState || !workspaceId) return false;
       if (dragState.currentWorkspaceId && workspaceId === dragState.currentWorkspaceId) return false;
       if (dragState.targetId !== workspaceId) {
-        for (const mark of workspaceMarks) mark.row.removeAttribute("data-dsh-migra-clean-drop");
+        if (activeDropRow) {
+          activeDropRow.removeAttribute("data-dsh-migra-clean-drop");
+          activeDropRow = null;
+        } else {
+          for (const mark of workspaceMarks) mark.row.removeAttribute("data-dsh-migra-clean-drop");
+        }
         dragState.targetId = workspaceId;
         const mark = workspaceMarks.find((m) => m.id === workspaceId);
         const row = mark ? mark.row : workspaceRowForId(workspaceId);
-        if (row) row.setAttribute("data-dsh-migra-clean-drop", "true");
+        if (row) {
+          row.setAttribute("data-dsh-migra-clean-drop", "true");
+          activeDropRow = row;
+        }
       }
       return true;
     }
@@ -1238,6 +1275,9 @@ window.__ModuleLoader__.load({
     // ---- 通道 2：指针拖拽（空白/归档会话也能拖） ----
     function onPointerDownCapture(event) {
       if (event.button !== 0) return;
+      if (event.target && typeof event.target.closest === "function") {
+        if (event.target.closest('button, input, textarea, select, [role="button"]')) return;
+      }
       const row = event.target && typeof event.target.closest === "function" ? event.target.closest(SESSION_ROW_SELECTOR) : null;
       if (!row) return;
       if (row.getAttribute("draggable") === "true") return; // 交给通道 1
@@ -1282,7 +1322,7 @@ window.__ModuleLoader__.load({
       if (!pointerDrag.active) {
         const dx = event.clientX - pointerDrag.startX;
         const dy = event.clientY - pointerDrag.startY;
-        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return;
         pointerDrag.active = true;
         beginDrag(pointerDrag.sessionId, pointerDrag.title);
       }
@@ -1389,11 +1429,19 @@ window.__ModuleLoader__.load({
     // 删除的正是当前选中会话时，切到一个安全位置，避免停在已消失的页面
     function switchToSafeSession(deletedSessionId) {
       try {
+        const isCurrent = currentMainSessionId() === deletedSessionId;
         const selected = document.querySelector(
           `[data-row-key="session:${deletedSessionId}"][aria-selected="true"]`
         );
         const inUrl = (window.location.href || "").includes(deletedSessionId);
-        if (!selected && !inUrl) return;
+        if (!isCurrent && !selected && !inUrl) return;
+
+        // 优先通过 uiWorkspace 清除当前主视图，释放对已删除会话的引用
+        const ui = activeCtx && typeof activeCtx.get === "function" ? activeCtx.get("uiWorkspace", false) : null;
+        if (ui && typeof ui.clearMain === "function") {
+          ui.clearMain();
+        }
+
         const newSessionBtn = document.querySelector(
           'button[aria-label*="新会话"], button[aria-label*="New session"], [data-action="new-session"]'
         );
@@ -1473,6 +1521,10 @@ window.__ModuleLoader__.load({
       }, "dsh-migra-clean: overlay");
 
       ctx.effect(() => {
+        const onBlur = () => {
+          if (dragState || pointerDrag) finishDrag();
+        };
+        window.addEventListener("blur", onBlur);
         document.addEventListener("dragstart", onDragStartCapture, true);
         document.addEventListener("dragover", onDragOverCapture, true);
         document.addEventListener("drop", onDropCapture, true);
@@ -1483,6 +1535,7 @@ window.__ModuleLoader__.load({
         document.addEventListener("pointercancel", onPointerCancelCapture, true);
         document.addEventListener("click", onClickCaptureGuard, true);
         return () => {
+          window.removeEventListener("blur", onBlur);
           document.removeEventListener("dragstart", onDragStartCapture, true);
           document.removeEventListener("dragover", onDragOverCapture, true);
           document.removeEventListener("drop", onDropCapture, true);
@@ -1500,8 +1553,19 @@ window.__ModuleLoader__.load({
 
       ctx.effect(() => {
         const onContextMenu = (event) => {
-          const target = event.target;
-          const row = target && typeof target.closest === "function" ? target.closest('[data-row-key^="session:"]') : null;
+          let target = event.target;
+          let row = target && typeof target.closest === "function" ? target.closest('[data-row-key^="session:"]') : null;
+          // 若气泡提示（HoverCard/Tooltip）等浮层正好处在鼠标指针下方，穿透浮层命中底下的会话行
+          if (!row && typeof document.elementsFromPoint === "function") {
+            const elements = document.elementsFromPoint(event.clientX, event.clientY);
+            for (const el of elements) {
+              const candidate = el && typeof el.closest === "function" ? el.closest('[data-row-key^="session:"]') : null;
+              if (candidate) {
+                row = candidate;
+                break;
+              }
+            }
+          }
           if (!row) return;
           const rowKey = row.getAttribute("data-row-key") || "";
           if (!rowKey.startsWith("session:")) return;
@@ -1511,7 +1575,7 @@ window.__ModuleLoader__.load({
           event.stopPropagation();
           const titleNode = row.querySelector('[class*="title"]');
           const title = (titleNode && titleNode.textContent ? titleNode.textContent : "").trim();
-          publish({ menu: { x: event.clientX, y: event.clientY, sessionId, title } });
+          publish({ menu: { id: ++menuSeed, x: event.clientX, y: event.clientY, sessionId, title } });
         };
         document.addEventListener("contextmenu", onContextMenu, true);
         return () => document.removeEventListener("contextmenu", onContextMenu, true);

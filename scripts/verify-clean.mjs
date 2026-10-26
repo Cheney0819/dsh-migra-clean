@@ -46,13 +46,27 @@ function exists(p) {
   }
 }
 
+function encodeSegment(raw) {
+  let encoded = "";
+  for (let i = 0; i < raw.length; i++) {
+    const code = raw.charCodeAt(i);
+    const ch = String.fromCharCode(code);
+    if (ch !== "~" && /^[A-Za-z0-9._-]$/.test(ch)) encoded += ch;
+    else encoded += "~" + code.toString(16).toUpperCase().padStart(4, "0");
+  }
+  return encoded;
+}
+
 /** 1. 会话日志目录 */
 function checkSessionDirs() {
   const root = path.join(DSH, "sessions");
   if (!exists(root)) return;
+  const encodedId = encodeSegment(sessionId);
   for (const project of fs.readdirSync(root)) {
-    const dir = path.join(root, project, sessionId);
-    if (exists(dir)) hits.push(`会话目录: ${dir}`);
+    const dirA = path.join(root, project, sessionId);
+    const dirB = path.join(root, project, encodedId);
+    if (exists(dirA)) hits.push(`会话目录: ${dirA}`);
+    else if (exists(dirB)) hits.push(`会话目录: ${dirB}`);
   }
 }
 

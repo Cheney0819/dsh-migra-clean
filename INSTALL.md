@@ -45,7 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/ins
 
 ```bash
 # 1) 装包（pin tag 更稳，追新可用 main）
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.3.9
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.0
 
 # 2) 登记 bundle（漏了不挂载；已存在会跳过）
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
@@ -57,9 +57,9 @@ node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/packa
 
 | 规格 | 示例 |
 |---|---|
-| GitHub 简写 | `github:Cheney0819/dsh-migra-clean#v1.3.9` |
+| GitHub 简写 | `github:Cheney0819/dsh-migra-clean#v1.4.0` |
 | Git URL | `git+https://github.com/Cheney0819/dsh-migra-clean.git` |
-| 远程 tarball | `https://github.com/Cheney0819/dsh-migra-clean/archive/refs/tags/v1.3.9.tar.gz` |
+| 远程 tarball | `https://github.com/Cheney0819/dsh-migra-clean/archive/refs/tags/v1.4.0.tar.gz` |
 | 本地目录（开发用，软链） | `file:/Users/me/code/dsh-migra-clean` |
 
 ---

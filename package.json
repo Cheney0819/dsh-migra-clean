@@ -1,6 +1,6 @@
 {
   "name": "dsh-migra-clean",
-  "version": "1.3.9",
+  "version": "1.4.0",
   "description": "DeepSeek Harness 侧边栏插件：彻底删除会话、跨工作区迁移（含 cwd 与日志搬迁），支持拖拽与右键菜单。",
   "type": "module",
   "license": "MIT",
