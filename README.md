@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.4.0-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.4.1-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -73,12 +73,12 @@ github:Cheney0819/dsh-migra-clean
 curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-脚本做三件事：`dsh plugin add github:...#v1.4.0` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+脚本做三件事：`dsh plugin add github:...#v1.4.1` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
 
 ### ③ 手动三条（无 UI、无脚本时）
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.0
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.1
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 # 重启 DeepSeek Harness
 ```
@@ -289,6 +289,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.4.1** | 迁移/删除弹窗视觉升级（核心功能零改动）：去掉页脚那条贯穿弹窗的分隔线（浅色主题下像一道划痕），改为靠留白分层；卡片换细发丝边 + 柔和投影；标题图标做成淡底圆角牌；信息胶囊改淡底圆角、超长路径省略；搜索框改淡底 + 柔和聚焦环（不再甩纯黑边框）；工作区选中态从纯黑描边改为「淡色底 + 左侧主色竖条」；预览块改淡底卡片并垂直居中，固定高度锁定保留（防边界抖动不变） |
 | **1.4.0** | 性能大跃升与深度排障：冷路径索引由 32ms 骤降至 1.15ms（27.5× 加速）；Zstd 单帧短路扫描 + 纯文本 jsonl 窗口轻量探头，彻底根治大日志导致的 OOM；原生单会话 O(1) indexHeader 替代全量会话全盘扫盘；多层级嵌套 Subagent 递归完整迁移与抹除；目录改写搬运增加原子级逆向回滚与跨盘 EXDEV 容灾；彻底根除触控板惯性微滚动与 HoverCard 遮挡导致的右键不弹菜单/需连点多次；迁移弹窗预览块 104px 绝对高度死锁彻底消除滑过当前行时的边界抽搐抖动；删除主视图会话自动解绑释放引用。 |
 | **1.3.9** | 修「删了又复活」：删除改为先 quiesce（flush 落盘）再强制重扫目录，旧实现先扫盘后 quiesce，刚建/刚写过的会话目录不在索引里会被静默漏删，宿主下次启动又把它索引回来；迁移同样改为绕过 TTL 缓存，并对未落盘的活会话先预落盘一次再重扫（此前直接报「未找到磁盘日志」）；删空的项目目录一并收掉；投影缓存文件改用单次 `rmSync(force)`；新增 `test/delete.mjs`（删除全流程 + 索引新鲜度回归） |
 | **1.3.8** | 去掉「迁移后整页刷新」：改为原地重挂主视图（只对被迁移且正在看的会话生效，其它会话不再被抢视图）；修首帧超过 64KB 时会话头读不出导致子会话漏搬、回滚拿不到原 cwd；修改写 cwd 会吃掉首帧里打包的其它事件；修回滚只挂回父会话、子会话变孤儿；迁移不再手写 workspace.json（整篇重写竞态），删除仅在拿不到 registry 时才兜底写；`cachedHeader` 命中路径省掉 2~3 次系统调用；子会话反查用 Set；拖拽归属补全不再重扫整棵 DOM；新增 `test/header.mjs`（zstd 多帧/大首帧/纯文本/projectKey 回归） |

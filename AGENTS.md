@@ -9,16 +9,16 @@
 1. **定位 profile**：`$DSH_HOME`（默认 `~/.dsh`）下的 `profiles/<name>`；桌面端通常是 `profiles/desktop`。
    存在多个 profile 时，列出候选并询问用户装哪个。
 2. **安装包**。优先用宿主自带的安装器（它会自动把包名登记进 `dsh.profile.bundles`）：
-   - 有 Web「插件」页面：`添加插件` 里填 `github:Cheney0819/dsh-migra-clean#v1.4.0` → 安装 → 立即启用
-   - 有 `plugin_manager` 工具：`install_bundle`，target 传 `github:Cheney0819/dsh-migra-clean#v1.4.0`
+   - 有 Web「插件」页面：`添加插件` 里填 `github:Cheney0819/dsh-migra-clean#v1.4.1` → 安装 → 立即启用
+   - 有 `plugin_manager` 工具：`install_bundle`，target 传 `github:Cheney0819/dsh-migra-clean#v1.4.1`
    - 都没有（纯终端）：按下面执行，然后务必完成第 3 步
 
 
    ```bash
-   dsh plugin --profile <name> add github:Cheney0819/dsh-migra-clean#v1.4.0
+   dsh plugin --profile <name> add github:Cheney0819/dsh-migra-clean#v1.4.1
    ```
 
-   - `dsh` 不在 PATH：改用 `pnpm add github:Cheney0819/dsh-migra-clean#v1.4.0`
+   - `dsh` 不在 PATH：改用 `pnpm add github:Cheney0819/dsh-migra-clean#v1.4.1`
    - 无网络：`git clone` 后 `pnpm add file:/绝对路径/dsh-migra-clean`
 3. **注册 bundle**（必做，漏了就是「装了不挂载」）：把 `"dsh-migra-clean"` 追加到
    `<profile>/package.json` 的 `dsh.profile.bundles` 数组；已存在则跳过。
