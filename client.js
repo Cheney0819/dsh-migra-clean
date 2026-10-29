@@ -234,73 +234,91 @@ window.__ModuleLoader__.load({
 .dsh-migra-clean-header-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}
 
 .dsh-migra-clean-scrim{position:fixed;inset:0;z-index:2147483001;display:flex;align-items:center;justify-content:center;
-  padding:24px;background:var(--dsw-alias-bg-mask-1, rgba(0,0,0,.45));backdrop-filter:saturate(120%) blur(1px);
+  padding:24px;background:var(--dsw-alias-bg-mask-1, rgba(0,0,0,.45));backdrop-filter:saturate(120%) blur(2px);
   pointer-events:auto;animation:dsh-migra-clean-fade .12s ease-out}
-.dsh-migra-clean-dialog{width:min(460px,100%);max-height:min(82vh,660px);display:flex;flex-direction:column;padding:18px;
-  box-sizing:border-box;border-radius:14px;background:var(--dsw-alias-bg-layer-1, #1f1f24);color:var(--dsw-alias-label-primary, #e6e6e6);
-  border:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.14));box-shadow:0 26px 64px rgba(0,0,0,.3);
+/* 卡片外壳：细发丝边 + 柔和投影。浅色主题下 brand-primary 是近黑色，
+   所以这里不再用重描边/重投影，避免糊成一块黑。 */
+.dsh-migra-clean-dialog{width:min(520px,100%);max-height:min(84vh,680px);display:flex;flex-direction:column;padding:22px 22px 18px;
+  box-sizing:border-box;border-radius:18px;background:var(--dsw-alias-bg-layer-1, #fff);color:var(--dsw-alias-label-primary, #111);
+  border:1px solid var(--dsw-alias-border-l2, rgba(15,17,21,.1));
+  box-shadow:0 20px 48px rgba(15,17,21,.18),0 1px 2px rgba(15,17,21,.06);
   font-size:13px;animation:dsh-migra-clean-rise .16s cubic-bezier(.16,1,.3,1)}
-.dsh-migra-clean-dialog-head{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
-.dsh-migra-clean-dialog-head svg{opacity:.9}
-.dsh-migra-clean-dialog-desc{margin-top:10px;line-height:1.65;color:var(--dsw-alias-label-secondary);white-space:pre-line}
-.dsh-migra-clean-dialog-meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
-.dsh-migra-clean-chip{font-size:11px;line-height:1.7;padding:1px 8px;border-radius:999px;
-  background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border:1px solid var(--dsw-alias-border-l1)}
-.dsh-migra-clean-dialog-error{margin-top:12px;padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.5;
-  background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-state-error-primary);
+.dsh-migra-clean-dialog-head{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:600;letter-spacing:.2px}
+/* 图标做成一枚淡底圆角牌，比裸图标耐看 */
+.dsh-migra-clean-dialog-head svg{flex:none;box-sizing:content-box;padding:6px;border-radius:10px;opacity:1;
+  background:color-mix(in srgb, var(--dsw-alias-brand-primary) 8%, transparent)}
+.dsh-migra-clean-dialog-desc{margin-top:12px;line-height:1.6;color:var(--dsw-alias-label-secondary);white-space:pre-line}
+.dsh-migra-clean-dialog-meta{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+/* 信息胶囊：淡底、无硬边，超长路径省略 */
+.dsh-migra-clean-chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:11.5px;line-height:1.6;padding:3px 9px;border-radius:8px;
+  background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border:1px solid transparent}
+.dsh-migra-clean-dialog-error{margin-top:12px;padding:9px 11px;border-radius:10px;font-size:12px;line-height:1.55;
+  background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
+  border:1px solid color-mix(in srgb, var(--dsw-alias-state-error-primary) 26%, transparent);
   color:var(--dsw-alias-state-error-primary)}
-.dsh-migra-clean-search-wrap{position:relative;margin:14px 0 8px;display:flex;align-items:center}
-.dsh-migra-clean-search-wrap svg{position:absolute;left:9px;color:var(--dsw-alias-label-secondary);pointer-events:none}
-.dsh-migra-clean-search{width:100%;padding:7px 10px 7px 30px;border-radius:8px;background:var(--dsw-alias-bg-layer-2);
-  border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px}
-.dsh-migra-clean-search::placeholder{color:var(--dsw-alias-label-secondary)}
-.dsh-migra-clean-search:focus{outline:none;border-color:var(--dsw-alias-brand-primary)}
-.dsh-migra-clean-list{flex:1;min-height:132px;overflow:auto;display:flex;flex-direction:column;gap:4px;
-  padding-right:2px;margin-bottom:6px}
-.dsh-migra-clean-ws{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;
-  border:1px solid transparent;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+/* 搜索框：淡底 + 聚焦时一圈柔和描边，不甩纯黑边框 */
+.dsh-migra-clean-search-wrap{position:relative;margin:16px 0 10px;display:flex;align-items:center}
+.dsh-migra-clean-search-wrap svg{position:absolute;left:11px;color:var(--dsw-alias-label-caption);pointer-events:none}
+.dsh-migra-clean-search{width:100%;height:36px;padding:0 12px 0 33px;border-radius:10px;
+  background:var(--dsw-alias-bg-module-platform);border:1px solid transparent;color:var(--dsw-alias-label-primary);
+  font:inherit;font-size:13px;transition:box-shadow .15s ease}
+.dsh-migra-clean-search::placeholder{color:var(--dsw-alias-label-caption)}
+.dsh-migra-clean-search:focus{outline:none;border-color:transparent;
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent)}
+.dsh-migra-clean-list{flex:1;min-height:132px;overflow:auto;display:flex;flex-direction:column;gap:2px;
+  padding-right:4px;margin-bottom:8px}
+/* 工作区行：选中态改成淡色底 + 左侧主色竖条，替掉浅色主题下扎眼的纯黑描边 */
+.dsh-migra-clean-ws{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px 9px 12px;
+  border-radius:10px;border:1px solid transparent;background:transparent;color:inherit;font:inherit;text-align:left;
+  cursor:pointer;transition:background .12s ease,box-shadow .12s ease}
 .dsh-migra-clean-ws:hover{background:var(--dsw-alias-interactive-bg-hover)}
-.dsh-migra-clean-ws[data-active="true"]{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
-.dsh-migra-clean-ws[data-current="true"]{cursor:default;opacity:.6}
+.dsh-migra-clean-ws[data-active="true"]{border-color:transparent;
+  background:color-mix(in srgb, var(--dsw-alias-brand-primary) 7%, transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-brand-primary) 16%, transparent)}
+.dsh-migra-clean-ws[data-active="true"]::before{content:"";position:absolute;left:5px;top:50%;transform:translateY(-50%);
+  width:3px;height:18px;border-radius:999px;background:var(--dsw-alias-brand-primary)}
+.dsh-migra-clean-ws[data-current="true"]{cursor:default;opacity:.7}
 .dsh-migra-clean-ws[data-current="true"]:hover{background:transparent}
 .dsh-migra-clean-ws-main{flex:1;min-width:0}
-.dsh-migra-clean-ws-title{display:flex;align-items:center;gap:6px;font-weight:600;font-size:13px;
+.dsh-migra-clean-ws-title{display:flex;align-items:center;gap:6px;font-weight:600;font-size:13.5px;
+  color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsh-migra-clean-ws-path{margin-top:3px;font-size:11.5px;color:var(--dsw-alias-label-tertiary);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dsh-migra-clean-ws-path{margin-top:2px;font-size:11px;color:var(--dsw-alias-label-secondary);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dsh-migra-clean-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:999px;
-  border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
-/* 说明块：无填充底色、无装饰条，只留一圈发丝边框；就绪时边框转主色。
-   固定高度 104px（ready/current/idle 三态严格同高）：彻底消除任何 hover 状态切换
-   带来的高度变化，避免弹窗垂直居中位移引发的边界抖动。 */
-.dsh-migra-clean-preview{display:flex;flex-direction:column;gap:6px;
-  padding:9px 10px;border-radius:9px;margin-bottom:4px;background:transparent;
-  box-sizing:border-box;height:104px;min-height:104px;max-height:104px;overflow:hidden;
-  border:1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.22));
-  transition:border-color .12s ease}
-.dsh-migra-clean-preview[data-state="ready"]{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary,#4c8dff) 34%,transparent)}
-.dsh-migra-clean-preview-note{font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary,#6b7280);overflow:hidden;text-overflow:ellipsis}
-.dsh-migra-clean-preview-flag{flex:none;font-size:10.5px;padding:1px 6px;border-radius:999px;
-  border:1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.32));color:var(--dsw-alias-label-secondary, #6b7280)}
-.dsh-migra-clean-preview-row{display:flex;align-items:baseline;gap:7px;min-width:0;font-size:11.5px}
-.dsh-migra-clean-preview-label{flex:none;color:var(--dsw-alias-label-secondary,#6b7280)}
-.dsh-migra-clean-preview-arrow{flex:none;font-weight:700;color:var(--dsw-alias-brand-primary,#4c8dff)}
+.dsh-migra-clean-tag{flex:none;font-size:11px;line-height:1.6;padding:1px 7px;border-radius:7px;
+  background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border:1px solid transparent}
+/* 说明块：淡底卡片（不再是一圈空框）；固定高度 104px（ready/current/idle 三态严格同高）：
+   hover 切 active 时高度不变，弹窗垂直居中不会位移，避免边界抖动。 */
+.dsh-migra-clean-preview{display:flex;flex-direction:column;justify-content:center;gap:6px;
+  padding:11px 12px;border-radius:12px;margin-bottom:2px;background:var(--dsw-alias-bg-module-platform);
+  box-sizing:border-box;height:100px;min-height:100px;max-height:100px;overflow:hidden;
+  border:1px solid transparent;transition:background .12s ease}
+.dsh-migra-clean-preview[data-state="ready"]{background:color-mix(in srgb, var(--dsw-alias-brand-primary) 5%, var(--dsw-alias-bg-module-platform))}
+.dsh-migra-clean-preview-note{font-size:11px;line-height:1.55;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis}
+.dsh-migra-clean-preview-flag{flex:none;font-size:10.5px;line-height:1.5;padding:1px 6px;border-radius:6px;
+  background:transparent;border:1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22));
+  color:var(--dsw-alias-label-secondary,#6b7280)}
+.dsh-migra-clean-preview-row{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:12px}
+.dsh-migra-clean-preview-label{flex:none;color:var(--dsw-alias-label-secondary)}
+.dsh-migra-clean-preview-arrow{flex:none;font-weight:700;color:var(--dsw-alias-brand-primary)}
 .dsh-migra-clean-preview-path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
-  color:var(--dsw-alias-label-primary,inherit);word-break:break-all}
-.dsh-migra-clean-empty{padding:18px 12px;text-align:center;font-size:12px;color:var(--dsw-alias-label-secondary)}
-.dsh-migra-clean-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding-top:12px;
-  border-top:1px solid var(--dsw-alias-border-l1)}
-.dsh-migra-clean-btn{padding:7px 14px;border-radius:8px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;
+  color:var(--dsw-alias-label-primary);word-break:break-all}
+.dsh-migra-clean-empty{padding:22px 12px;text-align:center;font-size:12px;color:var(--dsw-alias-label-tertiary)}
+/* 页脚：去掉那条贯穿的分隔线（浅色主题下像一道划痕），靠留白分层 */
+.dsh-migra-clean-dialog-foot{display:flex;justify-content:flex-end;gap:8px;padding-top:16px}
+.dsh-migra-clean-btn{padding:8px 16px;border-radius:10px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;
   border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-primary);
-  transition:background .12s,opacity .12s}
-.dsh-migra-clean-btn[data-variant="ghost"]{border-color:var(--dsw-alias-border-l1)}
-.dsh-migra-clean-btn[data-variant="ghost"]:hover{background:var(--dsw-alias-bg-layer-2)}
-.dsh-migra-clean-btn[data-variant="primary"]{background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-inverted,var(--dsw-alias-bg-layer-1))}
-.dsh-migra-clean-btn[data-variant="danger"]{background:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-label-primary-inverted,var(--dsw-alias-bg-layer-1))}
-.dsh-migra-clean-btn:not(:disabled):hover{filter:brightness(1.06)}
+  transition:background .12s,box-shadow .12s,opacity .12s}
+.dsh-migra-clean-btn[data-variant="ghost"]{color:var(--dsw-alias-label-secondary)}
+.dsh-migra-clean-btn[data-variant="ghost"]:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dsh-migra-clean-btn[data-variant="primary"]{background:var(--dsw-alias-brand-primary);
+  color:var(--dsw-alias-label-primary-inverted,var(--dsw-alias-bg-layer-1));box-shadow:0 1px 2px rgba(15,17,21,.14)}
+.dsh-migra-clean-btn[data-variant="primary"]:not(:disabled):hover{background:var(--dsw-alias-button-primary-hover,#43454a)}
+.dsh-migra-clean-btn[data-variant="danger"]{background:var(--dsw-alias-state-error-primary);
+  color:#fff;box-shadow:0 1px 2px rgba(236,19,19,.2)}
 .dsh-migra-clean-btn:not(:disabled):active{transform:translateY(.5px)}
-.dsh-migra-clean-btn:disabled{opacity:.55;cursor:default}
+.dsh-migra-clean-btn:disabled{opacity:.45;cursor:default}
 .dsh-migra-clean-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
 
 .dsh-migra-clean-toasts{position:fixed;right:16px;bottom:16px;z-index:2147483002;display:flex;flex-direction:column;
@@ -324,7 +342,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.4.0";
+    const STYLE_VERSION = "1.4.1";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
