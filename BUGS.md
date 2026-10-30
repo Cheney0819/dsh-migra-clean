@@ -42,6 +42,7 @@
 | BUG-026 | 1.4.2 | 目标工作区目录被删后迁移「成功」，会话被挂到新建的空目录 | 代码 `mkdirSync(targetPath)` 与 README 的「目录不存在拒绝」冲突 |
 | BUG-027 | 1.4.2 | 迁移几 GB 会话日志时内存暴涨/事件循环卡死 | `rewriteSessionCwd` 仍整文件读入并 `Buffer.concat`，只应流式复制首帧之后的尾部 |
 | BUG-028 | 1.4.2 | 迁移遇到目标项目已有同名会话目录时，直接删掉目标目录，可能误删另一个会话 | 迁移前无条件 `rmSync(dest)`，没有把目录名冲突当作错误 |
+| BUG-029 | 1.4.3 | 会话已经删掉，弹窗却报「清理 sessionQuery 索引失败：session-search SQLite index is closed」 | 把派生搜索索引/投影缓存的清理失败误计入核心 `failures`；`openAt:"first-search"` 时索引本来就可能没打开 |
 
 ### BUG-001 宿主 HMR 连坐删除本插件样式表
 
@@ -84,7 +85,7 @@
 
 - 根因：删除/迁移都用了带 TTL 的索引缓存，而刚建/刚写的目录还没进索引；删除还先扫盘后 quiesce。
 - 修复：先 quiesce 落盘 → 强制重扫（绕过 TTL）→ 再执行；迁移对未落盘的活会话预落盘一次。
-- 回归：`test/delete.mjs`（磁盘清空、空目录回收、投影缓存销毁、索引剔除、幂等删除，15 条断言）。
+- 回归：`test/delete.mjs`（磁盘清空、空目录回收、投影缓存销毁、索引剔除、幂等删除，17 条断言）。
 - 教训：**凡涉及磁盘真实状态的操作，禁止信任 TTL 缓存；顺序永远是「先落盘、再重扫、后动手」。**
 
 ### BUG-010 大日志 OOM
@@ -121,6 +122,7 @@
 - 修复：删除流程收集 `failures`，任一失败返回 `ok:false`；子会话 quiesce 失败立即中止且不删除任何目录。
 - 回归：`test/delete.mjs` 新增自定义 ID、不可写目录用例；`test/move.mjs` 覆盖子会话失败路径。
 - 教训：**「彻底删除」必须以磁盘实际结果为准；失败不能伪装成功，子会话未停稳前禁止动父/子目录。**
+- 后续：BUG-029 将搜索索引/投影缓存降级为派生缓存告警，核心目录与归属仍 fail-closed。
 
 ### BUG-018 quiesce 没有真正保证落盘与停止
 
@@ -199,6 +201,14 @@
 - 回归：`test/move.mjs` 的正常/失败路径；重复 ID 场景由目标目录检查拒绝。
 - 教训：**迁移只允许写自己的目标；目标已存在先报错，绝不 rm -rf 另一个会话目录。**
 
+### BUG-029 派生索引关闭被误报为删除失败
+
+- 现象：物理目录已经删掉，删除弹窗仍显示「尚有 1 项清理失败：清理 sessionQuery 索引: session-search SQLite index is closed」。
+- 根因：`sessionQuery._deleteSession()` 直接调用 `_requireDb()`；当索引配置为 `openAt: "first-search"` 且尚未打开，或宿主服务已关闭时，会抛 `SESSION_QUERY_INDEX_FAILED`。这是派生索引，不是会话数据本身，旧版却把它计入核心 `failures`。
+- 修复：`sessionQuery` 与 `sessionProjectionCache` 的清理失败降级为警告；物理目录、workspace 归属等核心清理仍 fail-closed。宿主下次搜索/启动会通过 `_reconcile` 删除不存在的 session 索引行。
+- 回归：`test/delete.mjs` 注入 `session-search SQLite index is closed`，断言删除不抛错且物理目录已删除。
+- 教训：**「彻底删除」的核心是会话日志和归属；派生索引/缓存只能 best-effort，不能反向否定已经完成的物理删除。**
+
 ---
 
 ## 二、已知问题（尚未修复 / 明确不修）
@@ -244,7 +254,7 @@
 |---|---|---|
 | 拖拽 / 点击吞噬 / 过期落点 / 主视图重挂 | `npm test`（含 `test/run.mjs` + `test/drag.test.html`） | 16 |
 | 会话头读写（zstd / >8MB 大首帧 / 纯文本 / projectKey） | `test/header.mjs` | 26 |
-| 彻底删除 / 索引新鲜度 / 投影缓存 / 自定义 ID / 失败上报 | `test/delete.mjs` | 15 |
+| 彻底删除 / 索引新鲜度 / 投影缓存 / 自定义 ID / 失败上报 | `test/delete.mjs` | 17 |
 | 迁移事务 / 回滚 / 目标目录校验 | `test/move.mjs` | 20 |
 | 索引性能 | `npm run bench` | 冷热对比 |
 | 删除残留离线核验 | `npm run verify -- <sessionId>` | 逐位置核对 |

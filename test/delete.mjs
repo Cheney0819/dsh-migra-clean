@@ -128,6 +128,32 @@ try {
   loud();
   log(fs.existsSync(customDir) === false, "自定义 ID（含 ~）的会话目录也被删除");
 
+  // 派生搜索索引关闭时，不能把已经完成的物理删除报成失败
+  const closedProject = path.join(sessionsRoot, "--closed-query-project--");
+  const closedDir = path.join(closedProject, "session-closed-query");
+  fs.mkdirSync(closedDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(closedDir, "session.v4.jsonl.zstd"),
+    zlib.zstdCompressSync(Buffer.from(`${JSON.stringify({ type: "session", version: 4, id: "session-closed-query", createdAt: 1, delegationDepth: 0, isSeeded: false, cwd: "/tmp/closed" })}
+`), CHECKSUM),
+  );
+  const closedQueryCtx = {
+    get: (name) => name === "sessionQuery"
+      ? { _deleteSession: () => { throw new Error("session-search SQLite index is closed"); } }
+      : ctx.get(name),
+    emit: ctx.emit,
+  };
+  let closedQueryThrew = false;
+  quiet();
+  try {
+    await __test.destroySession(closedQueryCtx, "session-closed-query");
+  } catch {
+    closedQueryThrew = true;
+  }
+  loud();
+  log(!closedQueryThrew, "派生搜索索引关闭不阻塞删除成功");
+  log(fs.existsSync(closedDir) === false, "搜索索引关闭时物理目录仍被删除");
+
   // 物理删除失败必须向上抛错，不能返回“彻底删除成功”
   if (process.platform !== "win32") {
     const readonlyProject = path.join(sessionsRoot, "--readonly-project--");
