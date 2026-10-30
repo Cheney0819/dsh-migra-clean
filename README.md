@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.4.1-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.4.2-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -51,7 +51,7 @@ Harness 的会话天然绑定工作区（工作目录）。日常会出现两类
 | 🗑️ 彻底删除会话 | 会话目录 `rm -rf`、投影缓存、工作区列表、归属实体、索引表一次清干净；多层级子会话级联删除 | 右键菜单 / 会话头部按钮 |
 | 📁 跨工作区迁移 | 重写会话头 `cwd`、把日志目录物理搬进目标工作区的 sessions 分区、迁移归属、同步索引 | 右键菜单 / 会话头部按钮 / **拖拽** |
 | 🖱️ 拖拽直达 | 会话行拖到工作区行即迁移；空白/归档会话走指针通道同样可拖 | 侧边栏 |
-| 👀 迁移预览 | 弹窗底部实时显示「迁移后 cwd → 路径」，当前工作区标注「不变」，104px 绝对固定防抽搐 | 迁移弹窗 |
+| 👀 迁移预览 | 弹窗底部实时显示「迁移后 cwd → 路径」，当前工作区标注「不变」，100px 绝对固定防抽搐 | 迁移弹窗 |
 | 🔎 工作区搜索 | 弹窗内按名称/路径过滤，↑↓ 选择、Enter 确认、Esc 取消 | 迁移弹窗 |
 | 🧯 失败回滚 | 归属挂载失败或中途异常时把目录与 `cwd` 全部原子搬回原处，支持跨盘 EXDEV，会话不会变成孤儿 | 自动 |
 | 🧾 删除核验工具 | 给一个会话 id，逐项检查是否还有残留 | CLI |
@@ -74,12 +74,12 @@ github:Cheney0819/dsh-migra-clean
 curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-脚本做三件事：`dsh plugin add github:...#v1.4.1` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+脚本做三件事：`dsh plugin add github:...#v1.4.2` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
 
 ### ③ 手动三条（无 UI、无脚本时）
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.1
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.2
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 # 重启 DeepSeek Harness
 ```
@@ -204,7 +204,7 @@ npm run verify session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 |---|---|---|---|
 | `POST` | `/api/dsh-migra-clean` | `{ "sessionId": "session-…" }` | 彻底删除会话 |
 | `GET` | `/api/dsh-migra-clean/workspaces` | `?sessionId=`（可选） | 工作区列表；带 `sessionId` 时附带该会话归属 |
-| `GET` | `/api/dsh-migra-clean/info` | `?sessionId=` | 会话概要（标题、`cwd`、所在工作区、候选目标） |
+| `GET` | `/api/dsh-migra-clean/info` | `?sessionId=` | 会话概要（标题、`cwd`、日志大小、最后活动时间、是否运行/落盘） |
 | `POST` | `/api/dsh-migra-clean/move` | `{ "sessionId": "…", "targetWorkspaceId": "…" }` | 迁移会话到目标工作区 |
 
 ## 实现要点
@@ -218,7 +218,7 @@ npm run verify session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 | 多层 Subagent 级联 | 采用 BFS 队列树状追踪，无论子智能体派生多深，全量递归预落盘、连带迁移或彻底抹除 |
 | 目录迁移原子回滚 | 搬运中途若任何一个条目出错，自动按记录反向逆序搬回并复原原 `cwd`；跨挂载点自动降级兼容 `EXDEV` |
 | 事件会自相矛盾 | 停会话会触发 `session/disposed` → 宿主广播 `api-session/removed`；迁移完成后需要**补发** `api-session/added`，并在短时间内监听 `disposed` 再补一次，保证顺序 |
-| 弹窗抗抖三向死锁 | 底部说明块实施 `height: 104px; min-height: 104px; max-height: 104px; overflow: hidden;` 绝对死锁，彻底杜绝居中位移抽搐 |
+| 弹窗抗抖三向死锁 | 底部说明块实施 `height: 100px; min-height: 100px; max-height: 100px; overflow: hidden;` 绝对死锁，彻底杜绝居中位移抽搐 |
 | 右键菜单手势保活 | 穿透 DSH 原生 `HoverCard` 浮层；改用被动 `wheel` 替代全局捕获的 `scroll`，杜绝触控板惯性与跑马灯微动误杀 |
 | 原子写 | 临时文件 + `fsync` + `safeMoveDir`，崩溃不会留下半个日志 |
 | 前端不碰宿主 DOM 结构 | 只通过 Slot 插入自己的 UI；样式只用主题 token，浅色/深色自适应 |
@@ -230,8 +230,8 @@ npm run verify session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 | 场景 | 耗时 | 相对基线 |
 |---|---|---|
 | 全量遍历 + 逐会话读头（旧实现） | 约 30–130 ms（随磁盘缓存波动） | 1× |
-| 冷路径（首次查询，建立 2s 缓存） | 约 1.1–1.8 ms | 25×–30× |
-| 稳态（缓存命中） | 约 0.01 ms | 3000× 量级 |
+| 冷路径（首次查询，建立 2s 缓存） | 约 1.1–1.8 ms | 20×–30× |
+| 稳态（缓存命中） | 约 0.01 ms | 4000× 量级 |
 
 实现：会话索引 2s TTL + header 按 `stat` 指纹缓存（单次 `statSync` 减半系统调用）、`projectKey` 零堆分配与路径直连缓存、归属查询 20s 缓存、拖拽高亮用 `requestAnimationFrame` 合帧与 $O(1)$ 局部样式标记。
 
@@ -240,14 +240,15 @@ npm run verify session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ## 开发与测试
 
 ```bash
-npm test        # 运行全套测试：前端拖拽通道 + Zstd多帧/纯文本 + 彻底删除全流程（共 40 项严格断言）
+npm test        # 运行全套测试：前端拖拽通道 + Zstd多帧/纯文本 + 彻底删除 + 迁移回滚（共 77 项严格断言）
 npm run bench   # 索引性能基准测试（2000 个会话冷热对比）
 npm run verify  # 删除残留核验（需传 sessionId）
 ```
 
-- `test/run.mjs`：基于无头 Chrome 驱动 `test/drag.test.html`，验证双拖拽通道、点击吞噬防误触、归属缓存命中与主视图原地重挂（12 条断言）。
-- `test/header.mjs`：会话日志读写边界回归，涵盖 Zstd 原地多帧改写、>64KB 超大首帧、纯文本 jsonl 改首行与 `projectKey` 路径编码校验（16 条断言）。
-- `test/delete.mjs`：彻底删除全流程验证，覆盖磁盘清空、空目录回收、投影缓存销毁、`workspace.json` 索引剔除与幂等删除（12 条断言）。
+- `test/run.mjs`：基于无头 Chrome 驱动 `test/drag.test.html`，验证双拖拽通道、点击吞噬防误触、过期落点、归属缓存命中与主视图原地重挂（16 条断言）。
+- `test/header.mjs`：会话日志读写边界回归，涵盖 Zstd 原地多帧改写、>64KB/>8MB 超大首帧、纯文本 jsonl 改首行与 `projectKey` 路径编码校验（26 条断言）。
+- `test/delete.mjs`：彻底删除全流程验证，覆盖磁盘清空、空目录回收、投影缓存销毁、`workspace.json` 索引剔除与幂等删除（15 条断言）。
+- `test/move.mjs`：迁移事务回归，覆盖正常迁移、rename 失败回滚、attach 失败回滚、目标目录缺失拒绝（20 条断言）。
 - `scripts/verify-clean.mjs`：离线核验工具，支持 `encodeSegment` 编码路径，逐项核对指定会话在各存储位置的绝对清洁度。
 
 ## 已知限制
@@ -292,6 +293,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.4.2** | 修复迁移失败回滚（cwd/目录/registry 索引）、删除部分失败被吞、子会话 quiesce 失败仍删目录、quiesce 未保证 flush/agent 停止、自定义 sessionId 路径编码、拖拽过期落点、标题 projection、子智能体主视图、`ctx.on` 监听器泄漏、MoveDialog Enter 旧索引、投影缓存绕过写链、目标目录缺失自动创建；把 `rewriteSessionCwd` 改为流式读写；修正 benchmark 夹具并新增 `test/move.mjs` |
 | **1.4.1** | 迁移/删除弹窗视觉升级（核心功能零改动）：去掉页脚那条贯穿弹窗的分隔线（浅色主题下像一道划痕），改为靠留白分层；卡片换细发丝边 + 柔和投影；标题图标做成淡底圆角牌；信息胶囊改淡底圆角、超长路径省略；搜索框改淡底 + 柔和聚焦环（不再甩纯黑边框）；工作区选中态从纯黑描边改为「淡色底 + 左侧主色竖条」；预览块改淡底卡片并垂直居中，固定高度锁定保留（防边界抖动不变） |
 | **1.4.0** | 性能大跃升与深度排障：冷路径索引由 32ms 骤降至 1.15ms（27.5× 加速）；Zstd 单帧短路扫描 + 纯文本 jsonl 窗口轻量探头，彻底根治大日志导致的 OOM；原生单会话 O(1) indexHeader 替代全量会话全盘扫盘；多层级嵌套 Subagent 递归完整迁移与抹除；目录改写搬运增加原子级逆向回滚与跨盘 EXDEV 容灾；彻底根除触控板惯性微滚动与 HoverCard 遮挡导致的右键不弹菜单/需连点多次；迁移弹窗预览块 104px 绝对高度死锁彻底消除滑过当前行时的边界抽搐抖动；删除主视图会话自动解绑释放引用。 |
 | **1.3.9** | 修「删了又复活」：删除改为先 quiesce（flush 落盘）再强制重扫目录，旧实现先扫盘后 quiesce，刚建/刚写过的会话目录不在索引里会被静默漏删，宿主下次启动又把它索引回来；迁移同样改为绕过 TTL 缓存，并对未落盘的活会话先预落盘一次再重扫（此前直接报「未找到磁盘日志」）；删空的项目目录一并收掉；投影缓存文件改用单次 `rmSync(force)`；新增 `test/delete.mjs`（删除全流程 + 索引新鲜度回归） |

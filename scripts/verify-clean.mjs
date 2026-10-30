@@ -47,6 +47,9 @@ function exists(p) {
 }
 
 function encodeSegment(raw) {
+  if (raw.length === 0) throw new Error("cannot encode an empty path segment");
+  if (raw === ".") return "~002E";
+  if (raw === "..") return "~002E~002E";
   let encoded = "";
   for (let i = 0; i < raw.length; i++) {
     const code = raw.charCodeAt(i);

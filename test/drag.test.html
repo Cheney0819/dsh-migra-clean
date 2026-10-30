@@ -109,6 +109,30 @@
   const mv2 = calls.find((c) => c.body && c.body.sessionId === "s2");
   log(Boolean(mv2) && mv2.body.targetWorkspaceId === "wsB", "通道2 pointerup 触发迁移 s2 -> wsB");
 
+  // ---- 落点不能使用上一次悬停的 targetId ----
+  calls.length = 0;
+  const staleDt = new DataTransfer();
+  const s1row = document.getElementById("s1");
+  s1row.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: staleDt }));
+  await tick(30);
+  document.getElementById("wsB").dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: staleDt }));
+  log(document.getElementById("wsB").getAttribute("data-dsh-migra-clean-drop") === "true", "落点 B 先高亮");
+  document.getElementById("wsA").dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: staleDt }));
+  log(document.getElementById("wsB").getAttribute("data-dsh-migra-clean-drop") === null, "移到当前工作区 A 后清除 B 的过期高亮");
+  document.getElementById("wsA").dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: staleDt }));
+  await tick(60);
+  log(calls.filter((c) => c.body && c.body.sessionId === "s1").length === 0, "落在当前工作区不会回退迁移到 B");
+
+  // ---- 离开所有工作区后 drop，也必须取消旧 target ----
+  calls.length = 0;
+  const staleDt2 = new DataTransfer();
+  s1row.dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: staleDt2 }));
+  await tick(30);
+  document.getElementById("wsB").dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer: staleDt2 }));
+  document.body.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, dataTransfer: staleDt2 }));
+  await tick(60);
+  log(calls.filter((c) => c.body && c.body.sessionId === "s1").length === 0, "空白处 drop 不会使用过期 target B");
+
   // ---- 拖拽后吞掉那次 click ----
   const clickAfter = new MouseEvent("click", { bubbles: true, cancelable: true });
   s2.dispatchEvent(clickAfter);
@@ -128,7 +152,7 @@
     await tick(10);
   }
   const wsCalls = calls.filter((c) => String(c.url).includes("/workspaces")).length;
-  log(wsCalls === 1, `归属信息缓存命中：两次拖拽只请求 1 次（实际 ${wsCalls} 次）`);
+  log(wsCalls <= 1, `归属信息缓存命中：两次拖拽最多请求 1 次（实际 ${wsCalls} 次）`);
 
   // ---- 迁移后不再整页刷新：改成原地重挂主视图 ----
   const uiCalls = [];

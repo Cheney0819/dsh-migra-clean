@@ -68,6 +68,19 @@ try {
   const bigHeader = __test.readSessionHeaderFromDir(dir2);
   log(bigHeader !== null && bigHeader.cwd === "/tmp/big", "超大首帧的 header 仍可读取");
 
+  // 3b) 首帧超过旧的 8MB 探测上限时也必须能读到（子会话漏搬回归）
+  const dir2b = path.join(root, "proj2b", "session-huge");
+  fs.mkdirSync(dir2b, { recursive: true });
+  const hugeFiller = [];
+  for (let i = 0; i < 22000; i += 1) {
+    hugeFiller.push(JSON.stringify({ type: "event", seq: i, payload: crypto.randomBytes(400).toString("base64") }));
+  }
+  const hugeFrame = frame(`${headerLine("/tmp/huge")}\n${hugeFiller.join("\n")}\n`);
+  fs.writeFileSync(path.join(dir2b, "session.v4.jsonl.zstd"), hugeFrame);
+  log(hugeFrame.length > 8 * 1024 * 1024, `构造的首帧超过 8MB（${hugeFrame.length} 字节）`);
+  const hugeHeader = __test.readSessionHeaderFromDir(dir2b);
+  log(hugeHeader !== null && hugeHeader.cwd === "/tmp/huge", "超过 8MB 的首帧 header 仍可读取");
+
   // 4) 纯文本日志：只改首行
   const dir3 = path.join(root, "proj3", "session-plain");
   fs.mkdirSync(dir3, { recursive: true });

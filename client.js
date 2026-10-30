@@ -287,7 +287,7 @@ window.__ModuleLoader__.load({
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsh-migra-clean-tag{flex:none;font-size:11px;line-height:1.6;padding:1px 7px;border-radius:7px;
   background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border:1px solid transparent}
-/* 说明块：淡底卡片（不再是一圈空框）；固定高度 104px（ready/current/idle 三态严格同高）：
+/* 说明块：淡底卡片（不再是一圈空框）；固定高度 100px（ready/current/idle 三态严格同高）：
    hover 切 active 时高度不变，弹窗垂直居中不会位移，避免边界抖动。 */
 .dsh-migra-clean-preview{display:flex;flex-direction:column;justify-content:center;gap:6px;
   padding:11px 12px;border-radius:12px;margin-bottom:2px;background:var(--dsw-alias-bg-module-platform);
@@ -342,7 +342,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.4.1";
+    const STYLE_VERSION = "1.4.2";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
@@ -793,12 +793,17 @@ window.__ModuleLoader__.load({
           });
         } else if (event.key === "Enter") {
           event.preventDefault();
-          move();
+          // active 是数组索引，过滤条件变化后 setActive 还没落地时不能盲目
+          // 用 filtered[active]；优先当前项，否则取过滤后第一个可迁移项。
+          const selected = filtered[active];
+          const target = selected && selected.id !== currentId
+            ? selected
+            : filtered.find((w) => w.id !== currentId);
+          if (target) move(target);
         }
       };
 
       const activeItem = filtered[active];
-      const title = dialog.sessionTitle || (payload && payload.session && payload.session.title) || "";
       const sessionCwd = payload && payload.session && payload.session.cwd;
 
       return h(
@@ -1098,6 +1103,7 @@ window.__ModuleLoader__.load({
           .then((data) => {
             if (!data || data.ok === false) return;
             const currentWorkspaceId = data.currentWorkspaceId || null;
+            if (workspaceMetaCache.size >= 512) workspaceMetaCache.clear();
             workspaceMetaCache.set(sessionId, { at: Date.now(), currentWorkspaceId });
             if (!always) return;
             if (!dragState || token !== dragToken) return;
@@ -1110,17 +1116,26 @@ window.__ModuleLoader__.load({
       return dragState;
     }
 
+    /** 清除当前落点高亮与 targetId；不触碰 dragState 本身。 */
+    function clearDropTarget() {
+      if (activeDropRow) {
+        activeDropRow.removeAttribute("data-dsh-migra-clean-drop");
+        activeDropRow = null;
+      } else {
+        for (const mark of workspaceMarks) mark.row.removeAttribute("data-dsh-migra-clean-drop");
+      }
+      if (dragState) dragState.targetId = null;
+    }
+
     /** 设定/清除落点高亮；返回该落点是否可接收。 */
     function setDropTarget(workspaceId) {
-      if (!dragState || !workspaceId) return false;
-      if (dragState.currentWorkspaceId && workspaceId === dragState.currentWorkspaceId) return false;
+      if (!dragState) return false;
+      if (!workspaceId || (dragState.currentWorkspaceId && workspaceId === dragState.currentWorkspaceId)) {
+        clearDropTarget();
+        return false;
+      }
       if (dragState.targetId !== workspaceId) {
-        if (activeDropRow) {
-          activeDropRow.removeAttribute("data-dsh-migra-clean-drop");
-          activeDropRow = null;
-        } else {
-          for (const mark of workspaceMarks) mark.row.removeAttribute("data-dsh-migra-clean-drop");
-        }
+        clearDropTarget();
         dragState.targetId = workspaceId;
         const mark = workspaceMarks.find((m) => m.id === workspaceId);
         const row = mark ? mark.row : workspaceRowForId(workspaceId);
@@ -1179,6 +1194,32 @@ window.__ModuleLoader__.load({
       return null;
     }
 
+    /**
+     * 当前主视图是否就是该会话，或它的子智能体会话。删除/迁移父会话时，
+     * 宿主会级联 dispose 子会话；只比较精确 ID 会漏掉“正在看子会话”的情况。
+     */
+    function currentMainDescendsFrom(sessionId) {
+      const current = currentMainSessionId();
+      if (!current) return false;
+      if (current === sessionId) return true;
+      const ctx = activeCtx;
+      if (!ctx || typeof ctx.get !== "function") return false;
+      try {
+        const sessions = ctx.get("sessions", false);
+        const manager = sessions && (sessions.manager || sessions);
+        let cursor = current;
+        const seen = new Set();
+        while (cursor && !seen.has(cursor)) {
+          seen.add(cursor);
+          const address = manager?.subagentAddress?.(cursor);
+          if (!address || !address.parentSessionId) return false;
+          if (address.parentSessionId === sessionId) return true;
+          cursor = address.parentSessionId;
+        }
+      } catch {}
+      return false;
+    }
+
     /** 把主视图上的会话原地重挂一次（丢弃被 removed 污染的旧实例）。 */
     function remountMainSession(sessionId) {
       const ctx = activeCtx;
@@ -1222,8 +1263,11 @@ window.__ModuleLoader__.load({
      * 会话顶掉（旧实现就是这个毛病）。
      */
     function afterMoveSession(sessionId, wasLive) {
-      if (currentMainSessionId() !== sessionId) return;
-      if (remountMainSession(sessionId) && !isClientSessionRemoved(sessionId)) return;
+      // 当前主视图可能是被移动会话本身，也可能是它的子智能体会话（子会话会
+      // 随父会话一起 quiesce）。两种情况都必须重挂当前视图。
+      const currentId = currentMainSessionId();
+      if (!currentId || !currentMainDescendsFrom(sessionId)) return;
+      if (remountMainSession(currentId) && !isClientSessionRemoved(currentId)) return;
       // 走到这里只有两种可能：宿主太老没有 uiWorkspace，或者这个会话还被别的视图
       // （右侧栏等）持有、引用计数没归零所以旧实例没被丢弃。此时活会话确实会卡死
       // 输入框，只能退回整页刷新。
@@ -1262,7 +1306,11 @@ window.__ModuleLoader__.load({
     function onDragOverCapture(event) {
       if (!dragState) return;
       const workspaceId = resolveWorkspaceIdFromTarget(event.target);
-      if (!workspaceId || !setDropTarget(workspaceId)) return;
+      if (!workspaceId) {
+        clearDropTarget();
+        return;
+      }
+      if (!setDropTarget(workspaceId)) return;
       event.preventDefault();
       event.stopPropagation();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
@@ -1271,7 +1319,9 @@ window.__ModuleLoader__.load({
     function onDropCapture(event) {
       if (!dragState) return;
       const state = dragState;
-      const workspaceId = state.targetId || resolveWorkspaceIdFromTarget(event.target);
+      // 只信 drop 事件实际命中的工作区。targetId 只用于高亮，不能用于落点，
+      // 否则“先悬停 B、再滑到 A/空白处、最后松手”会错误迁移到 B。
+      const workspaceId = resolveWorkspaceIdFromTarget(event.target);
       const sameWorkspace = Boolean(workspaceId) && workspaceId === state.currentWorkspaceId;
       finishDrag();
       if (!workspaceId) return;
@@ -1356,7 +1406,8 @@ window.__ModuleLoader__.load({
       pointerDrag = null;
       if (!state.active) return; // 没超过阈值：普通点击，原样放行
       const under = document.elementFromPoint(event.clientX, event.clientY);
-      const workspaceId = (dragState && dragState.targetId) || resolveWorkspaceIdFromTarget(under);
+      // 与 onDropCapture 同理：松手位置必须实际落在可接收的工作区行上。
+      const workspaceId = resolveWorkspaceIdFromTarget(under);
       const currentId = dragState ? dragState.currentWorkspaceId : null;
       finishDrag();
       swallowClickUntil = Date.now() + 400;
@@ -1444,10 +1495,10 @@ window.__ModuleLoader__.load({
       switchToSafeSession(sessionId);
     }
 
-    // 删除的正是当前选中会话时，切到一个安全位置，避免停在已消失的页面
+    // 删除的正是当前选中会话（或它的子树）时，切到一个安全位置，避免停在已消失的页面
     function switchToSafeSession(deletedSessionId) {
       try {
-        const isCurrent = currentMainSessionId() === deletedSessionId;
+        const isCurrent = currentMainDescendsFrom(deletedSessionId);
         const selected = document.querySelector(
           `[data-row-key="session:${deletedSessionId}"][aria-selected="true"]`
         );

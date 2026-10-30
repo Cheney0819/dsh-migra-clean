@@ -37,7 +37,7 @@ function buildFixture() {
         parentSession: created === 1 ? "sess-0" : undefined,
         origin: created === 1 ? "subagent" : undefined,
       };
-      fs.writeFileSync(path.join(dir, "session.jsonl"), `${JSON.stringify(header)}\n`);
+      fs.writeFileSync(path.join(dir, "session.v4.jsonl"), `${JSON.stringify(header)}\n`);
     }
   }
   return root;
@@ -65,7 +65,7 @@ function oldPath(root, targetParent) {
   const children = [];
   for (const projectDir of projects) {
     for (const name of namesByProject.get(projectDir) || []) {
-      const file = path.join(projectDir, name, "session.jsonl");
+      const file = path.join(projectDir, name, "session.v4.jsonl");
       let header = null;
       try {
         const text = fs.readFileSync(file, "utf8");
@@ -110,6 +110,11 @@ function time(fn, iterations) {
 
 const root = buildFixture();
 const targetParent = "sess-0";
+const oldCheck = oldPath(root, targetParent);
+const newCheck = newPath(root, targetParent);
+if (oldCheck.children.length !== newCheck.children.length) {
+  throw new Error(`benchmark 夹具不一致：old=${oldCheck.children.length} new=${newCheck.children.length}`);
+}
 const oldMs = time(() => oldPath(root, targetParent), ITERATIONS);
 __test.invalidateSessionCaches();
 const newMs = time(() => newPath(root, targetParent), ITERATIONS);

@@ -113,6 +113,43 @@ try {
   }
   loud();
   log(secondOk, "重复删除同一个会话不会抛异常");
+
+  // 自定义 ID 必须按宿主 encodeSegment 规则找到目录，不能静默漏删
+  const customId = "a~b";
+  const customProject = path.join(sessionsRoot, "--custom-project--");
+  const customDir = path.join(customProject, __test.encodeSegment(customId));
+  fs.mkdirSync(customDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(customDir, "session.v4.jsonl.zstd"),
+    zlib.zstdCompressSync(Buffer.from(`${JSON.stringify({ type: "session", version: 4, id: customId, createdAt: 1, delegationDepth: 0, isSeeded: false, cwd: "/tmp/custom" })}\n`), CHECKSUM),
+  );
+  quiet();
+  await __test.destroySession(ctx, customId);
+  loud();
+  log(fs.existsSync(customDir) === false, "自定义 ID（含 ~）的会话目录也被删除");
+
+  // 物理删除失败必须向上抛错，不能返回“彻底删除成功”
+  if (process.platform !== "win32") {
+    const readonlyProject = path.join(sessionsRoot, "--readonly-project--");
+    const readonlyDir = path.join(readonlyProject, "session-readonly");
+    fs.mkdirSync(readonlyDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(readonlyDir, "session.v4.jsonl.zstd"),
+      zlib.zstdCompressSync(Buffer.from(`${JSON.stringify({ type: "session", version: 4, id: "session-readonly", createdAt: 1, delegationDepth: 0, isSeeded: false, cwd: "/tmp/readonly" })}\n`), CHECKSUM),
+    );
+    fs.chmodSync(readonlyProject, 0o555);
+    let deleteThrew = false;
+    quiet();
+    try {
+      await __test.destroySession(ctx, "session-readonly");
+    } catch {
+      deleteThrew = true;
+    }
+    loud();
+    log(deleteThrew, "目录不可写时删除会抛错而不是伪装成功");
+    log(fs.existsSync(readonlyDir), "删除失败时目录保持原样");
+    fs.chmodSync(readonlyProject, 0o755);
+  }
 } finally {
   loud();
   process.env.DSH_HOME = prevHome;
