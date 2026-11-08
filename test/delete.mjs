@@ -176,6 +176,22 @@ try {
     log(fs.existsSync(readonlyDir), "删除失败时目录保持原样");
     fs.chmodSync(readonlyProject, 0o755);
   }
+
+  // 启动清扫：空项目目录 / 仅含 .DS_Store 的目录删除，非空目录保留
+  const sweepEmptyProject = path.join(sessionsRoot, "--sweep-empty-project--");
+  const sweepDsProject = path.join(sessionsRoot, "--sweep-ds-project--");
+  const sweepKeepProject = path.join(sessionsRoot, "--sweep-keep-project--");
+  fs.mkdirSync(sweepEmptyProject, { recursive: true });
+  fs.mkdirSync(sweepDsProject, { recursive: true });
+  fs.writeFileSync(path.join(sweepDsProject, ".DS_Store"), "finder");
+  fs.mkdirSync(path.join(sweepKeepProject, "session-keep"), { recursive: true });
+  fs.writeFileSync(path.join(sweepKeepProject, "session-keep", "session.v4.jsonl"), "keep\n");
+  quiet();
+  const swept = __test.sweepEmptyProjectDirs(sessionsRoot);
+  loud();
+  log(swept === 2, `启动清扫删除 2 个空项目目录（实际 ${swept} 个）`);
+  log(!fs.existsSync(sweepEmptyProject) && !fs.existsSync(sweepDsProject), "空目录与仅含 .DS_Store 的目录被删除");
+  log(fs.existsSync(sweepKeepProject), "非空项目目录不会被误删");
 } finally {
   loud();
   process.env.DSH_HOME = prevHome;

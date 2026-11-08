@@ -8,7 +8,7 @@
 set -euo pipefail
 
 PKG="dsh-migra-clean"
-DEFAULT_SPEC="github:Cheney0819/dsh-migra-clean#v1.4.3"
+DEFAULT_SPEC="github:Cheney0819/dsh-migra-clean#v1.4.4"
 PROFILE="desktop"
 SPEC="$DEFAULT_SPEC"
 DO_INSTALL=1

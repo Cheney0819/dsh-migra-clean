@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.4.3-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.4.4-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -74,12 +74,12 @@ github:Cheney0819/dsh-migra-clean
 curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-脚本做三件事：`dsh plugin add github:...#v1.4.3` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+脚本做三件事：`dsh plugin add github:...#v1.4.4` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
 
 ### ③ 手动三条（无 UI、无脚本时）
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.3
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.4
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 # 重启 DeepSeek Harness
 ```
@@ -189,6 +189,16 @@ node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/packa
 
 **不删**：`~/.dsh/attachments/**` 是内容寻址的共享对象（多个会话可能引用同一份），删会话不动对象；第三方插件自己的账本（例如成本统计）不在本插件职责内。
 
+### 启动时维护
+
+插件启动时会扫一遍 `~/.dsh/sessions/` 下的项目索引目录：
+
+- 空目录 → 删除
+- 仅含 `.DS_Store` 的目录 → 删 `.DS_Store` 后删除目录
+- 含任意会话/文件的目录 → 保留
+
+这只清理宿主索引缓存，不触碰真实项目目录，也不会删除任何非空会话目录。
+
 想自己核对？用内置核验工具：
 
 ```bash
@@ -240,14 +250,14 @@ npm run verify session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ## 开发与测试
 
 ```bash
-npm test        # 运行全套测试：前端拖拽通道 + Zstd多帧/纯文本 + 彻底删除 + 迁移回滚（共 79 项严格断言）
+npm test        # 运行全套测试：前端拖拽通道 + Zstd多帧/纯文本 + 彻底删除 + 迁移回滚（共 82 项严格断言）
 npm run bench   # 索引性能基准测试（2000 个会话冷热对比）
 npm run verify  # 删除残留核验（需传 sessionId）
 ```
 
 - `test/run.mjs`：基于无头 Chrome 驱动 `test/drag.test.html`，验证双拖拽通道、点击吞噬防误触、过期落点、归属缓存命中与主视图原地重挂（16 条断言）。
 - `test/header.mjs`：会话日志读写边界回归，涵盖 Zstd 原地多帧改写、>64KB/>8MB 超大首帧、纯文本 jsonl 改首行与 `projectKey` 路径编码校验（26 条断言）。
-- `test/delete.mjs`：彻底删除全流程验证，覆盖磁盘清空、空目录回收、投影缓存销毁、`workspace.json` 索引剔除与幂等删除（17 条断言）。
+- `test/delete.mjs`：彻底删除全流程验证，覆盖磁盘清空、空目录回收、投影缓存销毁、`workspace.json` 索引剔除、幂等删除与启动清扫（20 条断言）。
 - `test/move.mjs`：迁移事务回归，覆盖正常迁移、rename 失败回滚、attach 失败回滚、目标目录缺失拒绝（20 条断言）。
 - `scripts/verify-clean.mjs`：离线核验工具，支持 `encodeSegment` 编码路径，逐项核对指定会话在各存储位置的绝对清洁度。
 
@@ -293,6 +303,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.4.4** | 启动时自动清扫 `~/.dsh/sessions` 下的空项目索引目录（空目录或仅含 `.DS_Store`），只删缓存空壳、不碰非空会话与真实项目目录；新增启动清扫回归用例 |
 | **1.4.3** | 修复删除已完成却因派生搜索索引/投影缓存清理失败而弹「尚有 1 项清理失败」：派生缓存改为 best-effort 告警，核心会话目录与 workspace 归属仍 fail-closed；新增关闭索引回归用例 |
 | **1.4.2** | 修复迁移失败回滚（cwd/目录/registry 索引）、删除部分失败被吞、子会话 quiesce 失败仍删目录、quiesce 未保证 flush/agent 停止、自定义 sessionId 路径编码、拖拽过期落点、标题 projection、子智能体主视图、`ctx.on` 监听器泄漏、MoveDialog Enter 旧索引、投影缓存绕过写链、目标目录缺失自动创建；把 `rewriteSessionCwd` 改为流式读写；修正 benchmark 夹具并新增 `test/move.mjs` |
 | **1.4.1** | 迁移/删除弹窗视觉升级（核心功能零改动）：去掉页脚那条贯穿弹窗的分隔线（浅色主题下像一道划痕），改为靠留白分层；卡片换细发丝边 + 柔和投影；标题图标做成淡底圆角牌；信息胶囊改淡底圆角、超长路径省略；搜索框改淡底 + 柔和聚焦环（不再甩纯黑边框）；工作区选中态从纯黑描边改为「淡色底 + 左侧主色竖条」；预览块改淡底卡片并垂直居中，固定高度锁定保留（防边界抖动不变） |
