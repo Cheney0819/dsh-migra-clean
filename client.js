@@ -342,7 +342,7 @@ window.__ModuleLoader__.load({
 }
 `;
 
-    const STYLE_VERSION = "1.4.4";
+    const STYLE_VERSION = "1.5.0";
 
     // 关键：宿主 HMR 重新求值客户端模块时，旧实例的 ctx.effect cleanup 会在
     // 新实例之后执行，直接删掉它。修复：每次 ensureStyles() 都创建一个独立的新
@@ -402,7 +402,13 @@ window.__ModuleLoader__.load({
     function Toasts({ toasts }) {
       return h(
         "div",
-        { className: "dsh-migra-clean-toasts", role: "status", "aria-live": "polite" },
+        {
+          className: "dsh-migra-clean-toasts",
+          role: "status",
+          "aria-live": "polite",
+          // 浮层一律声明窗口区域：macOS Desktop 上贴边浮层不应参与页头拖动判定
+          "data-window-drag-exclude": "true",
+        },
         toasts.map((item) =>
           h(
             "div",
@@ -487,6 +493,9 @@ window.__ModuleLoader__.load({
           className: "dsh-migra-clean-menu",
           role: "menu",
           "aria-label": "会话操作",
+          // macOS Desktop（0.2.2-rc.1 起）只自动排除 data-window-drag 行内的控件：
+          // 自定义浮层必须显式声明自己的窗口区域，否则浮在拖动区上时点击会被当成拖窗口。
+          "data-window-drag-exclude": "true",
           // 只内联动态位置；静态样式全部交给 CSS（带兜底色，即使 token 缺失也不裸奔）
           style: {
             left: pos.left,
@@ -585,6 +594,9 @@ window.__ModuleLoader__.load({
         "div",
         {
           className: "dsh-migra-clean-scrim",
+          // 全屏浮层同样要显式声明窗口区域（macOS Desktop 的 no-drag 排除不再全局生效）；
+          // 排除视口自身矩形即可覆盖被裁剪的子元素。
+          "data-window-drag-exclude": "true",
           // 内联兜底：即使样式表因任何原因没生效，弹窗也必须是全屏居中、可读、可点
           style: {
             background: "rgba(0,0,0,.45)",

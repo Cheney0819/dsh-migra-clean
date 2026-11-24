@@ -6,7 +6,7 @@
 
 <p>
   <img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="version" src="https://img.shields.io/badge/version-1.4.4-informational.svg">
+  <img alt="version" src="https://img.shields.io/badge/version-1.5.0-informational.svg">
   <img alt="platform" src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg">
   <img alt="plugin" src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-8A2BE2.svg">
 </p>
@@ -74,12 +74,12 @@ github:Cheney0819/dsh-migra-clean
 curl -fsSL https://raw.githubusercontent.com/Cheney0819/dsh-migra-clean/main/install.sh | bash -s -- --profile desktop
 ```
 
-脚本做三件事：`dsh plugin add github:...#v1.4.4` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
+脚本做三件事：`dsh plugin add github:...#v1.5.0` → 备份并把包名登记进 `dsh.profile.bundles` → 提示重启。可重复执行（幂等），支持 `--spec file:/路径`、`--no-install`、`--profile <名字>`。
 
 ### ③ 手动三条（无 UI、无脚本时）
 
 ```bash
-dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.4.4
+dsh plugin --profile desktop add github:Cheney0819/dsh-migra-clean#v1.5.0
 node -e 'const fs=require("fs"),p=process.env.HOME+"/.dsh/profiles/desktop/package.json";const d=JSON.parse(fs.readFileSync(p,"utf8"));d.dsh??={};d.dsh.profile??={};const b=d.dsh.profile.bundles??=[];if(!b.includes("dsh-migra-clean"))b.push("dsh-migra-clean");fs.writeFileSync(p,JSON.stringify(d,null,2)+"\n");console.log("bundles:",b.join(", "));'
 # 重启 DeepSeek Harness
 ```
@@ -221,7 +221,7 @@ npm run verify session-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 | 点 | 做法 |
 |---|---|
-| 会话日志是 zstd 分帧流 | 自己走帧（magic `0x4247762216`），短路只解压首帧（`maxFrames: 1`），改写 `cwd` 后用同样的窗口参数重压并做往返校验 |
+| 会话日志是 zstd 分帧流 | 自己走帧（magic `0xFD2FB528`），短路只解压首帧（`maxFrames: 1`），改写 `cwd` 后用同样的窗口参数重压并做往返校验 |
 | 纯文本日志防 OOM | 对未压缩的 `.jsonl` 同样实行 64KB 探测窗口浅读，杜绝数百 MB 大日志全量加载撑爆内存 |
 | 归属不能直接改数组 | 必须走 `WorkspaceEntity.detachSession/attachSession`，优先调用原生单会话 $O(1)$ `registry.indexHeader` 局部增量同步，废除全量全盘扫盘 |
 | 挂载会校验 `cwd` | `attachSession` 要求 `header.cwd` 与实体 `record.path` 严格相等且目录存在，所以**先搬迁再挂载** |
@@ -257,13 +257,16 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 - `test/run.mjs`：基于无头 Chrome 驱动 `test/drag.test.html`，验证双拖拽通道、点击吞噬防误触、过期落点、归属缓存命中与主视图原地重挂（16 条断言）。
 - `test/header.mjs`：会话日志读写边界回归，涵盖 Zstd 原地多帧改写、>64KB/>8MB 超大首帧、纯文本 jsonl 改首行与 `projectKey` 路径编码校验（26 条断言）。
-- `test/delete.mjs`：彻底删除全流程验证，覆盖磁盘清空、空目录回收、投影缓存销毁、`workspace.json` 索引剔除、幂等删除与启动清扫（20 条断言）。
-- `test/move.mjs`：迁移事务回归，覆盖正常迁移、rename 失败回滚、attach 失败回滚、目标目录缺失拒绝（20 条断言）。
+- `test/delete.mjs`：彻底删除全流程验证，覆盖磁盘清空、空目录回收、投影缓存销毁、`workspace.json` 索引剔除、幂等删除与启动清扫（18 条断言）。
+- `test/move.mjs`：迁移事务回归，覆盖正常迁移、rename 失败回滚、attach 失败回滚、目标目录缺失拒绝（17 条断言）。
+- `test/compat-0.2.2-rc.5.mjs`：宿主版本对齐回归，覆盖 `projectKey` 与真实磁盘目录名逐字节一致、`session.jsonl`/`session.vN.jsonl[.zstd]` 全代际识别（v0–v4）、多代并存取最高代、未知未来代与非法文件名、`_no-cwd` 约定（14 条断言，无需浏览器）。
+- `test/host-smoke.mjs`：宿主装载冒烟，用最小 ctx 复刻 `webServer.register({kind,path,handler})` 与 `ctx.effect` 契约，起真 HTTP 服务跑通 4 条路由（含历史代会话的 `/info`），并验证卸载后路由全部注销（23 条断言，无需浏览器）。
 - `scripts/verify-clean.mjs`：离线核验工具，支持 `encodeSegment` 编码路径，逐项核对指定会话在各存储位置的绝对清洁度。
 
 ## 已知限制
 
 - **不上架 npm registry**：安装走 `github:` / Git URL / tarball / 本地目录规格（宿主插件需要 `cordis.patch.yml` 与 `dsh.client.inject` 声明才能被装配），因此包本身不发布到 npm。
+- **适配版本**：本版按 DeepSeek Harness `0.2.2-rc.5` 的接口与磁盘布局核对（`engines.dsh` 已声明）。会话日志按宿主「代际」规则发现，v0–v4 全代际可读，未来 `vN` 无需改动也能识别；但若宿主改动 `~/.dsh` 的目录结构、`workspace.json` 存储域版本或本插件依赖的内部服务（`sessions` / `agents` / `workspaceRegistry` / `sessionQuery` / `sessionPersistence` / `sessionProjectionCache`），仍可能出现降级——插件对这些服务全部是「取不到就跳过」的可选调用，不会因此让宿主启动失败。
 - 迁移会**先停会话**，长任务跑到一半时会被中断（这是为了保证日志一致）。
 - 归档会话、空白会话在原生拖拽里不可拖，本插件用指针通道兜底；但落在「当前工作区」依旧会拒绝。
 - 删除不清理第三方插件自建的账本数据。
@@ -303,6 +306,7 @@ npm run verify  # 删除残留核验（需传 sessionId）
 
 | 版本 | 变化 |
 |---|---|
+| **1.5.0** | 适配 DeepSeek Harness **0.2.2-rc.5**：会话日志改为按宿主的「代际」规则发现（`session.jsonl` / `session.vN.jsonl`，压缩版再加 `.zstd`，取最高代），不再写死 `v4` 文件名——历史代会话不再漏读、漏删、漏搬；`projectKey` 空 cwd 对齐宿主的 `_no-cwd`；`workspace.json` 兜底写回对齐存储域 version 2；客户端 `dsh.client.inject` 里已不存在的 `@deepseek-ai/dsh-client-ui-slots` 换成实际提供 `slots` 服务的 `@deepseek-ai/dsh-client-ui-renderer`；三个浮层（右键菜单 / 全屏遮罩 / Toast）显式声明 `data-window-drag-exclude`，适配 macOS Desktop 取消全局 no-drag 排除的变更；声明 `engines.dsh`；修复 Windows 上「改写会话 cwd 必然 EPERM」的句柄顺序问题（源文件句柄未关闭就 rename），迁移在 Windows 恢复可用；新增 `test/compat-0.2.2-rc.5.mjs`、`test/host-smoke.mjs` 与 `npm run test:node` |
 | **1.4.4** | 启动时自动清扫 `~/.dsh/sessions` 下的空项目索引目录（空目录或仅含 `.DS_Store`），只删缓存空壳、不碰非空会话与真实项目目录；新增启动清扫回归用例 |
 | **1.4.3** | 修复删除已完成却因派生搜索索引/投影缓存清理失败而弹「尚有 1 项清理失败」：派生缓存改为 best-effort 告警，核心会话目录与 workspace 归属仍 fail-closed；新增关闭索引回归用例 |
 | **1.4.2** | 修复迁移失败回滚（cwd/目录/registry 索引）、删除部分失败被吞、子会话 quiesce 失败仍删目录、quiesce 未保证 flush/agent 停止、自定义 sessionId 路径编码、拖拽过期落点、标题 projection、子智能体主视图、`ctx.on` 监听器泄漏、MoveDialog Enter 旧索引、投影缓存绕过写链、目标目录缺失自动创建；把 `rewriteSessionCwd` 改为流式读写；修正 benchmark 夹具并新增 `test/move.mjs` |

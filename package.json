@@ -1,6 +1,6 @@
 {
   "name": "dsh-migra-clean",
-  "version": "1.4.4",
+  "version": "1.5.0",
   "description": "DeepSeek Harness 侧边栏插件：彻底删除会话、跨工作区迁移（含 cwd 与日志搬迁），支持拖拽与右键菜单。",
   "type": "module",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "drag-and-drop"
   ],
   "scripts": {
-    "test": "node test/run.mjs && node test/header.mjs && node test/delete.mjs && node test/move.mjs",
+    "test": "node test/run.mjs && node test/header.mjs && node test/delete.mjs && node test/move.mjs && node test/compat-0.2.2-rc.5.mjs && node test/host-smoke.mjs",
+    "test:node": "node test/header.mjs && node test/delete.mjs && node test/move.mjs && node test/compat-0.2.2-rc.5.mjs && node test/host-smoke.mjs",
     "bench": "node test/bench-index.mjs",
     "verify": "node scripts/verify-clean.mjs"
   },
@@ -46,7 +47,7 @@
       "inject": [
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
-        "@deepseek-ai/dsh-client-ui-slots"
+        "@deepseek-ai/dsh-client-ui-renderer"
       ]
     }
   },
@@ -64,6 +65,7 @@
     "url": "https://github.com/Cheney0819"
   },
   "engines": {
-    "node": ">=22.15.0"
+    "node": ">=24.9.0",
+    "dsh": ">=0.2.2-rc.5"
   }
 }

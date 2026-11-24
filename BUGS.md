@@ -209,6 +209,22 @@
 - 回归：`test/delete.mjs` 注入 `session-search SQLite index is closed`，断言删除不抛错且物理目录已删除。
 - 教训：**「彻底删除」的核心是会话日志和归属；派生索引/缓存只能 best-effort，不能反向否定已经完成的物理删除。**
 
+### BUG-030 Windows 上改写会话 cwd 必然 EPERM
+
+- 现象：Windows 上任何迁移都失败，报 `EPERM: operation not permitted, rename '....tmp' -> 'session.v4.jsonl.zstd'`，事务随即回滚（macOS/Linux 上同一代码正常）。
+- 根因：`rewriteSessionCwd` 用 `fs.openSync` 打开源日志后，在 `finally` 里才关闭；而 `writeFileAtomicFromFile`（→ `safeMoveDir` → `fs.renameSync`）在关闭之前就尝试用临时文件覆盖同一路径。POSIX 允许 rename 已打开的文件，Windows 不允许，于是必然 EPERM。
+- 修复：把「读」与「写」分成两个阶段——先读完首帧/首行、`fs.closeSync(fd)` 释放句柄，再做原子替换。两个分支（zstd 与纯文本）都改。
+- 回归：`test/header.mjs`、`test/move.mjs`（Windows 上此前必失败）。
+- 教训：**任何「读源文件 → 原子覆盖源文件」的路径，都必须在 rename 之前显式关闭读句柄；不要依赖 `finally` 的时序。**
+
+### BUG-031 会话日志只认固定的 `session.v4.jsonl[.zstd]`
+
+- 现象：宿主升级后，历史代会话（`session.jsonl` / `session.v1~v3.jsonl`）在插件侧被判定为「未落盘」：`/info` 报 `persisted: false`、迁移找不到日志、删除时按目录清但仍可能留下宿主索引。宿主下次格式升级（v5）会整体复发。
+- 根因：`sessionLogFiles` 把当前代文件名写死成 `session.v4.jsonl.zstd` / `session.v4.jsonl`。而宿主的会话日志是**代际文件**：v0 保留最初的 `session.jsonl`，此后每代是 `session.vN.jsonl`（N≥1，无前导零），压缩版再加 `.zstd`；同一会话目录可能同时存在多代，运行时永远选最高代。
+- 修复：按宿主 `@deepseek-ai/dsh-session-format` 的规范名正则枚举目录，取代际号最高者（同代压缩优先），未知的未来代自动识别；非规范名（大写、前导零）忽略。
+- 回归：`test/compat-0.2.2-rc.5.mjs`（v0–v4、多代并存、v9 未来代、非法名）、`test/host-smoke.mjs`（历史代会话 `/info`）。
+- 教训：**文件名里的版本号是数据，不是常量；永远按宿主的规范名规则解析，而不是硬编码当前代。**
+
 ---
 
 ## 二、已知问题（尚未修复 / 明确不修）
@@ -245,6 +261,10 @@
 15. 标题/列表字段必须从 DSH projection 读取，不能假设 `SessionHeader.title`。→ BUG-021
 16. 视觉改动不得触碰核心逻辑路径（1.4.1 实践）。
 17. 每次改动跑第四节对应测试；新增 bug 修复必须补一条 BUG 记录。
+18. 会话日志文件名必须按代际规则解析（`session.jsonl` / `session.vN.jsonl`，压缩追加 `.zstd`），禁止硬编码某一代。→ BUG-031
+19. 任何「读源文件 → 原子覆盖源文件」都必须先关闭读句柄再 rename（Windows）。→ BUG-030
+20. 与宿主存储相关的版本常量（`workspace.json` 的 `unit.version`、`_no-cwd` 约定）必须与宿主当前实现对齐，不能沿用旧值。→ 1.5.0
+21. 自定义浮层必须显式声明窗口区域（`data-window-drag-exclude`）；macOS Desktop 自 0.2.2-rc.1 起不再全局 no-drag。→ 1.5.0
 
 ---
 
@@ -254,8 +274,10 @@
 |---|---|---|
 | 拖拽 / 点击吞噬 / 过期落点 / 主视图重挂 | `npm test`（含 `test/run.mjs` + `test/drag.test.html`） | 16 |
 | 会话头读写（zstd / >8MB 大首帧 / 纯文本 / projectKey） | `test/header.mjs` | 26 |
-| 彻底删除 / 索引新鲜度 / 投影缓存 / 自定义 ID / 失败上报 / 启动清扫 | `test/delete.mjs` | 20 |
-| 迁移事务 / 回滚 / 目标目录校验 | `test/move.mjs` | 20 |
+| 彻底删除 / 索引新鲜度 / 投影缓存 / 自定义 ID / 失败上报 / 启动清扫 | `test/delete.mjs` | 18 |
+| 迁移事务 / 回滚 / 目标目录校验 | `test/move.mjs` | 17 |
+| 宿主版本对齐（projectKey 逐字节 / 全代际识别 / `_no-cwd`） | `test/compat-0.2.2-rc.5.mjs` | 14 |
+| 宿主装载（路由注册 / 原生 req-res / 卸载注销） | `test/host-smoke.mjs` | 23 |
 | 索引性能 | `npm run bench` | 冷热对比 |
 | 删除残留离线核验 | `npm run verify -- <sessionId>` | 逐位置核对 |
 | 样式 / HMR 归属 | 手工：改其它插件 ≥2 次 + 打开弹窗/菜单 | — |
